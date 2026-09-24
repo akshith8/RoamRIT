@@ -18,6 +18,12 @@
       var uid = 200;
       function nextId() { return uid++; }
       function now() { return Date.now(); }
+      function slugify(name) {
+        var base = String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "spot";
+        var id = base, n = 2;
+        while (spots.some(function (spot) { return spot.id === id; })) { id = base + "-" + n; n++; }
+        return id;
+      }
       function update(minsBack, vibe, noise, outlets, comfort, note) {
         return { id: nextId(), timestamp: now() - minsBack * 60000, vibe: vibe, noise: noise, outlets: outlets, comfort: comfort, note: note || "" };
       }
@@ -32,7 +38,12 @@
         { id: "cafe-corner", name: "Off-Campus Café Corner", category: "quiet", sector: "South gate", x: 22, y: 47, description: "Independent café two minutes off the main gate with solid wifi.", updates: [update(50, "Chill", 2, 4, 5, "Comfy corner booth open, wifi's solid.")] }
       ];
       var state = { filter: "all", search: "", selected: null, activeView: "explore" };
-      var formState = { spot: spots[0].id, vibe: null, noise: 3, outlets: 3, comfort: 3 };
+      var formState = {
+        mode: "update",
+        spot: spots[0].id,
+        vibe: null, rating: null, noise: 3, outlets: 3, comfort: 3,
+        newSpot: { name: "", category: "study", sector: "", x: null, y: null }
+      };
 
       function escapeHTML(value) {
         return String(value).replace(/[&<>"']/g, function (char) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]; });
@@ -72,6 +83,17 @@
           var haystack = (spot.name + " " + spot.description + " " + spot.sector + " " + CATEGORIES[spot.category].label + " " + latest(spot).vibe).toLowerCase();
           return haystack.indexOf(state.search) !== -1;
         });
+      }
+
+      function renderPlaceCount() {
+        var el = document.getElementById("place-count");
+        if (el) el.textContent = spots.length + (spots.length === 1 ? " place" : " places");
+      }
+      function renderSectorList() {
+        var sectors = [];
+        spots.forEach(function (spot) { if (sectors.indexOf(spot.sector) === -1) sectors.push(spot.sector); });
+        var list = document.getElementById("sector-list");
+        if (list) list.innerHTML = sectors.map(function (sector) { return '<option value="' + escapeHTML(sector) + '"></option>'; }).join("");
       }
 
       var listEl = document.getElementById("spot-list");
@@ -187,10 +209,10 @@
           '<p class="drawer-section-label">Spot read</p><p style="color:var(--muted);font-size:13px;line-height:1.55;">' + escapeHTML(spot.description) + '</p>' +
           '<div class="metric-list">' + metric("Noise", average(spot, "noise"), color) + metric("Outlets", average(spot, "outlets"), color) + metric("Comfort", average(spot, "comfort"), color) + '</div>' +
           '<p class="drawer-section-label">Recent check-ins (' + updates.length + ')</p><div class="checkin-list">' + updates.map(function (item) { return '<div class="checkin" style="--signal:' + color + '"><div class="checkin-head"><strong>' + escapeHTML(item.vibe) + '</strong><span>' + relativeTime(item.timestamp) + '</span></div>' + (item.note ? '<p>' + escapeHTML(item.note) + '</p>' : '<p>No note left.</p>') + '</div>'; }).join("") + '</div>' +
-          '<button class="report-btn drawer-report" type="button" id="drawer-report">Report an update here</button></div></aside></div>';
+          '<button class="report-btn drawer-report" type="button" id="drawer-report">Review this spot</button></div></aside></div>';
         document.getElementById("close-drawer").addEventListener("click", closeDetail);
         document.getElementById("backdrop").addEventListener("click", function (event) { if (event.target.id === "backdrop") closeDetail(); });
-        document.getElementById("drawer-report").addEventListener("click", function () { closeDetail(); formState.spot = spot.id; renderReportSpot(); switchView("report"); });
+        document.getElementById("drawer-report").addEventListener("click", function () { closeDetail(); openContributionMode("update", spot.id); switchView("report"); });
         document.addEventListener("keydown", escClose);
         renderExplore();
       }
@@ -211,29 +233,176 @@
         document.getElementById("report-spot").value = formState.spot;
       }
       function updateFormStateLabel(id, value) { document.getElementById(id).textContent = value; }
-      function renderFormChoices() {
-        makeChoices("vibe-choices", VIBES, formState.vibe, function (value) { formState.vibe = value; updateSubmitState(); });
-        makeChoices("noise-choices", [1, 2, 3, 4, 5], formState.noise, function (value) { formState.noise = value; updateFormStateLabel("noise-value", value); });
-        makeChoices("outlet-choices", [1, 2, 3, 4, 5], formState.outlets, function (value) { formState.outlets = value; updateFormStateLabel("outlet-value", value); });
-        makeChoices("comfort-choices", [1, 2, 3, 4, 5], formState.comfort, function (value) { formState.comfort = value; updateFormStateLabel("comfort-value", value); });
+      function renderCategoryChoices() {
+        var container = document.getElementById("category-choices");
+        container.innerHTML = Object.keys(CATEGORIES).map(function (key) {
+          return '<button class="choice" type="button" data-choice="' + key + '" aria-pressed="' + (key === formState.newSpot.category) + '">' + CATEGORIES[key].glyph + ' ' + CATEGORIES[key].label + '</button>';
+        }).join("");
+        container.querySelectorAll("[data-choice]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            formState.newSpot.category = button.dataset.choice;
+            renderCategoryChoices();
+            renderMiniMap();
+          });
+        });
       }
-      function updateSubmitState() { document.getElementById("submit-report").disabled = !formState.vibe; }
-      document.getElementById("report-spot").addEventListener("change", function (event) { formState.spot = event.target.value; });
-      document.getElementById("report-form").addEventListener("submit", function (event) {
-        event.preventDefault();
-        if (!formState.vibe) return;
-        var spot = spots.find(function (item) { return item.id === formState.spot; });
-        spot.updates.push(update(0, formState.vibe, formState.noise, formState.outlets, formState.comfort, document.getElementById("report-note").value.trim()));
-        document.getElementById("report-note").value = "";
+      function renderMiniMap() {
+        var map = document.getElementById("mini-map");
+        if (!map) return;
+        map.querySelectorAll(".mini-map-dot, .mini-map-marker").forEach(function (node) { node.remove(); });
+        var hint = document.getElementById("mini-map-hint");
+        spots.forEach(function (spot) {
+          var dot = document.createElement("span");
+          dot.className = "mini-map-dot";
+          dot.style.left = spot.x + "%";
+          dot.style.top = spot.y + "%";
+          dot.style.background = CATEGORIES[spot.category].color;
+          map.appendChild(dot);
+        });
+        if (formState.newSpot.x !== null && formState.newSpot.y !== null) {
+          if (hint) hint.hidden = true;
+          var marker = document.createElement("span");
+          marker.className = "mini-map-marker";
+          marker.style.left = formState.newSpot.x + "%";
+          marker.style.top = formState.newSpot.y + "%";
+          marker.style.setProperty("--node", CATEGORIES[formState.newSpot.category].color);
+          marker.style.background = CATEGORIES[formState.newSpot.category].color;
+          map.appendChild(marker);
+        } else if (hint) {
+          hint.hidden = false;
+        }
+      }
+      function placeOnMiniMap(event) {
+        var map = document.getElementById("mini-map");
+        var rect = map.getBoundingClientRect();
+        var clientX = event.touches ? event.touches[0].clientX : event.clientX;
+        var clientY = event.touches ? event.touches[0].clientY : event.clientY;
+        var x = Math.round(Math.max(4, Math.min(96, ((clientX - rect.left) / rect.width) * 100)));
+        var y = Math.round(Math.max(4, Math.min(96, ((clientY - rect.top) / rect.height) * 100)));
+        formState.newSpot.x = x;
+        formState.newSpot.y = y;
+        renderMiniMap();
+        updateAddSpotSubmitState();
+      }
+      document.getElementById("mini-map").addEventListener("click", placeOnMiniMap);
+      document.getElementById("mini-map").addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          formState.newSpot.x = formState.newSpot.x === null ? 50 : formState.newSpot.x;
+          formState.newSpot.y = formState.newSpot.y === null ? 50 : formState.newSpot.y;
+          renderMiniMap();
+          updateAddSpotSubmitState();
+        }
+      });
+      function setReportMode(mode) {
+        formState.mode = mode;
+        document.querySelectorAll("#mode-toggle .mode-btn").forEach(function (button) {
+          button.setAttribute("aria-pressed", button.dataset.mode === mode ? "true" : "false");
+        });
+        document.getElementById("review-form").hidden = mode !== "update";
+        document.getElementById("add-spot-form").hidden = mode !== "new";
+        if (mode === "new") {
+          renderCategoryChoices();
+          renderMiniMap();
+          updateAddSpotSubmitState();
+        } else {
+          renderReportSpot();
+          updateReviewSubmitState();
+        }
+      }
+      function openContributionMode(mode, spotId) {
+        if (spotId) formState.spot = spotId;
+        setReportMode(mode);
+      }
+      document.querySelectorAll("#mode-toggle .mode-btn").forEach(function (button) {
+        button.addEventListener("click", function () { setReportMode(button.dataset.mode); });
+      });
+      function renderFormChoices() {
+        makeChoices("vibe-choices", VIBES, formState.vibe, function (value) { formState.vibe = value; updateReviewSubmitState(); });
+        makeChoices("noise-choices", [1, 2, 3, 4, 5], formState.noise, function (value) { formState.noise = value; updateFormStateLabel("noise-value", value); updateReviewSubmitState(); });
+        makeChoices("outlet-choices", [1, 2, 3, 4, 5], formState.outlets, function (value) { formState.outlets = value; updateFormStateLabel("outlet-value", value); updateReviewSubmitState(); });
+        makeChoices("comfort-choices", [1, 2, 3, 4, 5], formState.comfort, function (value) { formState.comfort = value; updateFormStateLabel("comfort-value", value); updateReviewSubmitState(); });
+        renderRatingChoices();
+      }
+      function renderRatingChoices() {
+        var container = document.getElementById("rating-choices");
+        if (!container) return;
+        container.innerHTML = [1,2,3,4,5].map(function (value) {
+          return '<button class="star-choice" type="button" data-rating="' + value + '" aria-label="' + value + ' out of 5" aria-pressed="' + (value === formState.rating) + '">' + (value <= (formState.rating || 0) ? "★" : "☆") + '</button>';
+        }).join("");
+        container.querySelectorAll("[data-rating]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            formState.rating = Number(button.dataset.rating);
+            renderRatingChoices();
+            updateReviewSubmitState();
+          });
+        });
+      }
+      function updateReviewSubmitState() {
+        var button = document.getElementById("submit-review");
+        if (button) button.disabled = !(formState.spot && formState.vibe && formState.rating);
+      }
+      function updateAddSpotSubmitState() {
+        var button = document.getElementById("submit-add-spot");
+        if (!button) return;
+        var n = formState.newSpot;
+        var name = document.getElementById("new-spot-name").value.trim();
+        button.disabled = !(name && n.sector && n.x !== null && n.y !== null);
+      }
+      document.getElementById("report-spot").addEventListener("change", function (event) { formState.spot = event.target.value; updateReviewSubmitState(); });
+      document.getElementById("new-spot-name").addEventListener("input", function (event) { formState.newSpot.name = event.target.value; updateAddSpotSubmitState(); });
+      document.getElementById("new-spot-sector").addEventListener("input", function (event) { formState.newSpot.sector = event.target.value.trim(); updateAddSpotSubmitState(); });
+      function resetReviewForm() {
         formState.vibe = null;
+        formState.rating = null;
         formState.noise = formState.outlets = formState.comfort = 3;
+        document.getElementById("report-note").value = "";
         renderFormChoices();
         updateFormStateLabel("noise-value", 3); updateFormStateLabel("outlet-value", 3); updateFormStateLabel("comfort-value", 3);
-        updateSubmitState();
+      }
+      function resetAddSpotForm() {
+        document.getElementById("new-spot-name").value = "";
+        document.getElementById("new-spot-description").value = "";
+        document.getElementById("new-spot-sector").value = "";
+        formState.newSpot = { name: "", category: "study", sector: "", x: null, y: null };
+        renderCategoryChoices();
+        renderMiniMap();
+        updateAddSpotSubmitState();
+      }
+      document.getElementById("review-form").addEventListener("submit", function (event) {
+        event.preventDefault();
+        if (!formState.spot || !formState.vibe || !formState.rating) return;
+        var spot = spots.find(function (item) { return item.id === formState.spot; });
+        if (!spot) return;
+        spot.updates.push(update(0, formState.vibe, formState.noise, formState.outlets, formState.comfort, document.getElementById("report-note").value.trim()));
+        spot.rating = formState.rating;
+        resetReviewForm();
         renderExplore();
         renderFeed();
-        showToast("Your live update is on the radar");
+        showToast("Your review is live on RoamRIT");
         switchView("explore");
+      });
+      document.getElementById("add-spot-form").addEventListener("submit", function (event) {
+        event.preventDefault();
+        var n = formState.newSpot;
+        var name = document.getElementById("new-spot-name").value.trim();
+        if (!name || !n.sector || n.x === null || n.y === null) { updateAddSpotSubmitState(); return; }
+        var newSpot = {
+          id: slugify(name), name: name, category: n.category, sector: n.sector, x: n.x, y: n.y,
+          description: document.getElementById("new-spot-description").value.trim(),
+          updates: []
+        };
+        spots.push(newSpot);
+        resetAddSpotForm();
+        renderReportSpot();
+        renderSectorList();
+        renderPlaceCount();
+        renderFilters();
+        renderExplore();
+        renderFeed();
+        showToast("“" + name + "” was added to RoamRIT");
+        switchView("explore");
+        openDetail(newSpot.id);
       });
 
       function showToast(message) {
@@ -246,8 +415,13 @@
 
       renderFilters();
       renderReportSpot();
+      renderSectorList();
+      renderCategoryChoices();
+      renderMiniMap();
+      setReportMode("update");
       renderFormChoices();
-      updateSubmitState();
+      updateReviewSubmitState();
+      renderPlaceCount();
       renderExplore();
       renderFeed();
     })();

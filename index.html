@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 
 </head>
 <body>
@@ -25,17 +26,17 @@
       <a class="brand" href="#" aria-label="Campus Vibe Check home" data-nav="explore">
         <span class="brand-mark" aria-hidden="true">RIT</span>
         <span class="brand-copy">
-          <span class="brand-name">Campus Vibe Check</span>
-          <span class="brand-tagline">Live seat radar</span>
+          <span class="brand-name">RoamRIT</span>
+          <span class="brand-tagline">Discover · Rate · Roam</span>
         </span>
       </a>
       <nav class="main-nav" aria-label="Primary navigation">
         <button class="nav-btn" type="button" data-nav="explore" aria-selected="true">Explore</button>
         <button class="nav-btn" type="button" data-nav="feed" aria-selected="false">Live feed</button>
-        <button class="nav-btn" type="button" data-nav="report" aria-selected="false">Add Review</button>
+        <button class="nav-btn" type="button" data-nav="report" aria-selected="false">Add Spot / Review</button>
       </nav>
       <span class="topbar-spacer"></span>
-      <div class="live-label"><span class="live-dot" aria-hidden="true"></span>Live campus signal</div>
+      <div class="live-label"><span class="live-dot" aria-hidden="true"></span>Live campus spots</div>
     </header>
 
     <main class="page">
@@ -45,7 +46,7 @@
             <div class="eyebrow">MSRIT · Explore campus</div>
             <h1 data-text="What are you exploring today?">What are you exploring today?</h1>
           </div>
-          <p class="heading-note">Discover <strong>8 places</strong> around MSRIT — from study spots to food, hangouts and quiet corners.</p>
+          <p class="heading-note">Discover <strong id="place-count">8 places</strong> around MSRIT — from study spots to food, hangouts and quiet corners.</p>
         </div>
 
         <div class="control-row">
@@ -55,7 +56,7 @@
             <input class="search-input" id="search-input" type="search" placeholder="Search by place, vibe, or amenity..." autocomplete="off">
           </label>
           <button class="location-btn" type="button" id="location-btn"><span class="location-icon">⌖</span> North campus <span aria-hidden="true">⌄</span></button>
-          <button class="report-btn" type="button" id="report-quick-btn"><span aria-hidden="true">＋</span> Add a review</button>
+          <button class="report-btn" type="button" id="report-quick-btn"><span aria-hidden="true">＋</span> Add spot / review</button>
         </div>
 
         <div class="filter-bar" id="filter-bar" aria-label="Filter spots">
@@ -107,20 +108,46 @@
 
       <section class="view report-view" id="view-report" hidden>
         <div class="report-header">
-          <div class="eyebrow">Give the next person a read</div>
-          <h1 data-text="Report the vibe.">Report the vibe.</h1>
-          <p>It takes ten seconds. Your check-in becomes a live signal for everyone looking for a desk, table, or place to reset.</p>
+          <div class="eyebrow">Community contributions</div>
+          <h1 data-text="Add a spot. Review a spot.">Add a spot. Review a spot.</h1>
+          <p>Use <strong>Add Spot</strong> when a place is missing. Use <strong>Review Spot</strong> when you want to tell other students what an existing place is like right now.</p>
         </div>
-        <form class="panel form-panel" id="report-form">
+
+        <div class="mode-toggle" id="mode-toggle" role="tablist" aria-label="Choose an action">
+          <button class="mode-btn" type="button" data-mode="update" aria-pressed="true" role="tab">★ Review a spot</button>
+          <button class="mode-btn" type="button" data-mode="new" aria-pressed="false" role="tab">＋ Add a new spot</button>
+        </div>
+
+        <form class="panel form-panel contribution-form" id="review-form">
+          <div class="form-title-row">
+            <div><h2>Review a spot</h2><p class="panel-kicker">Share your experience with a place that already exists.</p></div>
+            <span class="form-badge">EXISTING SPOT</span>
+          </div>
           <div class="form-grid">
             <label class="field full"><span class="field-label">Spot</span><select class="field-input" id="report-spot" required></select></label>
-            <div class="field full"><span class="field-label">Vibe</span><div class="choice-row" id="vibe-choices"></div></div>
+            <div class="field full"><span class="field-label">Overall rating</span><div class="star-row" id="rating-choices" aria-label="Overall rating"></div></div>
+            <div class="field full"><span class="field-label">Current vibe</span><div class="choice-row" id="vibe-choices"></div></div>
             <div class="field"><span class="field-label">Noise <span id="noise-value">3</span><span>/5</span></span><div class="choice-row" id="noise-choices"></div></div>
             <div class="field"><span class="field-label">Outlet access <span id="outlet-value">3</span><span>/5</span></span><div class="choice-row" id="outlet-choices"></div></div>
             <div class="field"><span class="field-label">Comfort <span id="comfort-value">3</span><span>/5</span></span><div class="choice-row" id="comfort-choices"></div></div>
-            <label class="field full"><span class="field-label">Note <span>(optional)</span></span><textarea class="field-input" id="report-note" maxlength="140" placeholder="e.g. Two tables open by the windows, a little loud near the entrance"></textarea></label>
+            <label class="field full"><span class="field-label">Your review <span>(optional)</span></span><textarea class="field-input" id="report-note" maxlength="240" placeholder="What should another student know before going?"></textarea></label>
           </div>
-          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-primary" id="submit-report" type="submit" disabled>Post live update</button></div>
+          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-primary" id="submit-review" type="submit" disabled>Post review</button></div>
+        </form>
+
+        <form class="panel form-panel contribution-form" id="add-spot-form" hidden>
+          <div class="form-title-row">
+            <div><h2>Add a new spot</h2><p class="panel-kicker">Create a place listing first. You can review it separately afterwards.</p></div>
+            <span class="form-badge">NEW PLACE</span>
+          </div>
+          <div class="form-grid">
+            <label class="field full"><span class="field-label">Spot name</span><input class="field-input" id="new-spot-name" type="text" maxlength="60" placeholder="e.g. Library Rooftop Nook" required></label>
+            <div class="field full"><span class="field-label">Category</span><div class="choice-row" id="category-choices"></div></div>
+            <label class="field"><span class="field-label">Sector</span><input class="field-input" id="new-spot-sector" list="sector-list" type="text" maxlength="30" placeholder="e.g. North quad" required><datalist id="sector-list"></datalist></label>
+            <div class="field"><span class="field-label">Pin it on the map</span><div class="mini-map" id="mini-map" role="button" tabindex="0" aria-label="Tap or click to place this spot on the map"><span class="mini-map-hint" id="mini-map-hint">Tap to place</span></div></div>
+            <label class="field full"><span class="field-label">Description <span>(optional)</span></span><textarea class="field-input" id="new-spot-description" maxlength="180" placeholder="What's this spot like? Any tips for finding it?"></textarea></label>
+          </div>
+          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-primary" id="submit-add-spot" type="submit" disabled>Add spot</button></div>
         </form>
       </section>
     </main>

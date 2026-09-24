@@ -1,21 +1,3 @@
-/*
-      PLAN
-      - Space Grotesk supplies a compact, distinctive display voice while DM Sans keeps
-        dense utility information easy to scan on a phone.
-      - A slate/off-white canvas, cobalt navigation, and three signal colors separate
-        campus structure from live occupancy data.
-      - The desktop composition is a map-and-directory workspace; on mobile the map
-        becomes a quick radar strip above the searchable spot list.
-
-      CRITIQUE
-      - Avoided a centered marketing hero, glassmorphism, neon gradients, serif/editorial
-        styling, and default browser form controls.
-      - The map is intentionally diagrammatic instead of pretending to be GPS-precise.
-        It answers “where should I go?” quickly, while the directory carries detail.
-      - Motion is limited to useful state changes: a radar pulse, a snappy selection
-        transition, and a small toast. Reduced-motion users get a static equivalent.
-    */
-
     :root {
   --bg: #0b0b0d;
   --bg-2: #111114;
@@ -404,6 +386,76 @@ h2 { font-size: 22px; line-height: 1.05; }
   border-color: transparent;
   background: linear-gradient(120deg, var(--cobalt), var(--red));
   box-shadow: 0 0 14px -4px var(--red-glow);
+}
+
+/* ----- report mode toggle ----- */
+.mode-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.mode-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 14px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .18s var(--ease);
+}
+.mode-btn:hover { color: var(--ink); }
+.mode-btn[aria-pressed="true"] {
+  color: #fff;
+  background: linear-gradient(120deg, var(--cobalt), var(--red));
+  box-shadow: 0 0 14px -4px var(--red-glow);
+}
+
+/* ----- mini map location picker ----- */
+.mini-map {
+  position: relative;
+  height: 132px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  cursor: crosshair;
+  overflow: hidden;
+}
+.mini-map:focus-visible { outline: 2px solid var(--cobalt-bright); outline-offset: 2px; }
+.mini-map-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  pointer-events: none;
+}
+.mini-map-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  opacity: .5;
+}
+.mini-map-marker {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--node) 28%, transparent), 0 2px 8px rgba(0, 0, 0, .4);
+  pointer-events: none;
 }
 
 /* ----- live workspace ----- */
@@ -921,6 +973,8 @@ h1 { letter-spacing:-.055em; }
   .form-grid { grid-template-columns: 1fr; }
   .field.full { grid-column: auto; }
   .form-panel { padding: 17px; }
+  .mode-toggle { display: flex; width: 100%; }
+  .mode-btn { flex: 1; text-align: center; }
   .feed-item { grid-template-columns: 10px 1fr; }
   .feed-time { grid-column: 2; }
 }
@@ -1116,4 +1170,30 @@ h1 { letter-spacing:-.055em; }
   .spot-meta { margin-top: 13px; }
   .pulse-meter { width: 60px; height: 60px; }
   .panel-heading h2 { font-size: 21px; }
+}
+/* ===== RoamRIT contribution forms ===== */
+.contribution-form { padding: 0; overflow: hidden; }
+.form-title-row {
+  display:flex; align-items:flex-start; justify-content:space-between; gap:18px;
+  padding:22px 23px 18px; border-bottom:1px solid var(--line);
+}
+.form-title-row h2 { margin:0; }
+.form-title-row .panel-kicker { margin-top:7px; }
+.form-badge {
+  flex-shrink:0; padding:6px 9px; border-radius:7px;
+  color:var(--cobalt-bright); background:var(--cobalt-soft);
+  font:700 10px var(--mono); letter-spacing:.08em;
+}
+.contribution-form .form-grid { padding:23px; }
+.star-row { display:flex; gap:4px; align-items:center; }
+.star-choice {
+  border:0; background:transparent; color:var(--muted-2); cursor:pointer;
+  font-size:31px; line-height:1; padding:2px 3px; transition:transform .15s var(--ease), color .15s;
+}
+.star-choice:hover, .star-choice[aria-pressed="true"] { color:var(--amber); transform:scale(1.08); }
+@media (max-width:650px) {
+  .form-title-row { padding:18px 17px 15px; }
+  .contribution-form .form-grid { padding:17px; }
+  .form-badge { display:none; }
+  .mode-btn { padding:10px 8px; }
 }
