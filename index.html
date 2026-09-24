@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#05060c">
+  <title>Campus Vibe Check</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+<body>
+  <div class="bg-fx" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-glow glow-cobalt"></div>
+    <div class="bg-glow glow-red"></div>
+    <div class="bg-glow glow-cobalt-2"></div>
+    <div class="bg-scan"></div>
+    <div class="bg-vignette"></div>
+  </div>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#" aria-label="Campus Vibe Check home" data-nav="explore">
+        <span class="brand-mark" aria-hidden="true">RIT</span>
+        <span class="brand-copy">
+          <span class="brand-name">Campus Vibe Check</span>
+          <span class="brand-tagline">Live seat radar</span>
+        </span>
+      </a>
+      <nav class="main-nav" aria-label="Primary navigation">
+        <button class="nav-btn" type="button" data-nav="explore" aria-selected="true">Explore</button>
+        <button class="nav-btn" type="button" data-nav="feed" aria-selected="false">Live feed</button>
+        <button class="nav-btn" type="button" data-nav="report" aria-selected="false">Add Review</button>
+      </nav>
+      <span class="topbar-spacer"></span>
+      <div class="live-label"><span class="live-dot" aria-hidden="true"></span>Live campus signal</div>
+    </header>
+
+    <main class="page">
+      <section class="view" id="view-explore">
+        <div class="page-heading">
+          <div>
+            <div class="eyebrow">MSRIT · Explore campus</div>
+            <h1 data-text="What are you exploring today?">What are you exploring today?</h1>
+          </div>
+          <p class="heading-note">Discover <strong>8 places</strong> around MSRIT — from study spots to food, hangouts and quiet corners.</p>
+        </div>
+
+        <div class="control-row">
+          <label class="search-wrap">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <span class="sr-only">Search spots</span>
+            <input class="search-input" id="search-input" type="search" placeholder="Search by place, vibe, or amenity..." autocomplete="off">
+          </label>
+          <button class="location-btn" type="button" id="location-btn"><span class="location-icon">⌖</span> North campus <span aria-hidden="true">⌄</span></button>
+          <button class="report-btn" type="button" id="report-quick-btn"><span aria-hidden="true">＋</span> Add a review</button>
+        </div>
+
+        <div class="filter-bar" id="filter-bar" aria-label="Filter spots">
+          <span class="filter-label">Show</span>
+        </div>
+
+        <div class="workspace">
+          <section class="panel map-panel" aria-labelledby="map-title">
+            <div class="panel-heading">
+              <div><h2 id="map-title">Campus map</h2><p class="panel-kicker">Explore places around MSRIT</p></div>
+              <span class="result-count">Updated just now</span>
+            </div>
+            <div class="map-canvas" id="map-canvas" aria-label="Diagram of campus spots">
+              <div class="map-road road-a"></div>
+              <div class="map-road road-b"></div>
+              <div class="map-road road-c"></div>
+              <span class="map-label north">North quad</span>
+              <span class="map-label center">Central walk</span>
+              <span class="map-label south">South gate</span>
+              <span class="north-arrow">N</span>
+              <div class="node-legend">
+                <span class="legend-item"><i class="legend-swatch"></i>Open</span>
+                <span class="legend-item"><i class="legend-swatch amber"></i>Filling</span>
+                <span class="legend-item"><i class="legend-swatch coral"></i>Busy</span>
+              </div>
+            </div>
+            <div class="map-foot"><span><strong id="map-summary">3 open sectors</strong> · based on the last 24 check-ins</span><button type="button" id="refresh-btn">↻ Refresh signal</button></div>
+          </section>
+
+          <section class="panel directory-panel" aria-labelledby="directory-title">
+            <div class="panel-heading">
+              <div><h2 id="directory-title">Explore places</h2><p class="panel-kicker">Popular with students right now</p></div>
+              <span class="result-count" id="result-count">8 spots</span>
+            </div>
+            <div class="spot-list" id="spot-list"></div>
+            <div class="empty-state" id="empty-state" hidden><strong>No signal here yet.</strong>Try a wider search or another filter.</div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view feed-view" id="view-feed" hidden>
+        <div class="feed-header">
+          <div class="eyebrow">Community signal</div>
+          <h1 data-text="Live feed.">Live feed.</h1>
+          <p>Fresh check-ins from people already on campus. Newer signals carry more weight in the pulse meter.</p>
+        </div>
+        <div class="feed-list" id="feed-list"></div>
+      </section>
+
+      <section class="view report-view" id="view-report" hidden>
+        <div class="report-header">
+          <div class="eyebrow">Give the next person a read</div>
+          <h1 data-text="Report the vibe.">Report the vibe.</h1>
+          <p>It takes ten seconds. Your check-in becomes a live signal for everyone looking for a desk, table, or place to reset.</p>
+        </div>
+        <form class="panel form-panel" id="report-form">
+          <div class="form-grid">
+            <label class="field full"><span class="field-label">Spot</span><select class="field-input" id="report-spot" required></select></label>
+            <div class="field full"><span class="field-label">Vibe</span><div class="choice-row" id="vibe-choices"></div></div>
+            <div class="field"><span class="field-label">Noise <span id="noise-value">3</span><span>/5</span></span><div class="choice-row" id="noise-choices"></div></div>
+            <div class="field"><span class="field-label">Outlet access <span id="outlet-value">3</span><span>/5</span></span><div class="choice-row" id="outlet-choices"></div></div>
+            <div class="field"><span class="field-label">Comfort <span id="comfort-value">3</span><span>/5</span></span><div class="choice-row" id="comfort-choices"></div></div>
+            <label class="field full"><span class="field-label">Note <span>(optional)</span></span><textarea class="field-input" id="report-note" maxlength="140" placeholder="e.g. Two tables open by the windows, a little loud near the entrance"></textarea></label>
+          </div>
+          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-primary" id="submit-report" type="submit" disabled>Post live update</button></div>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div id="drawer-root"></div>
+  <script src="script.js"></script>
+</body>
+</html>
