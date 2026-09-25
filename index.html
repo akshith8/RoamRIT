@@ -3,125 +3,130 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#05060c">
-  <title>Campus Vibe Check</title>
+  <meta name="theme-color" content="#0a0a10">
+  <title>RoamRIT · Discover campus spots</title>
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-
 </head>
 <body>
-  <div class="bg-fx" aria-hidden="true">
-    <div class="bg-grid"></div>
-    <div class="bg-glow glow-cobalt"></div>
-    <div class="bg-glow glow-red"></div>
-    <div class="bg-glow glow-cobalt-2"></div>
-    <div class="bg-scan"></div>
-    <div class="bg-vignette"></div>
+  <div class="ambient" aria-hidden="true">
+    <span class="blob blob-a"></span>
+    <span class="blob blob-b"></span>
+    <span class="blob blob-c"></span>
   </div>
+
   <div class="app-shell">
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Campus Vibe Check home" data-nav="explore">
-        <span class="brand-mark" aria-hidden="true">RIT</span>
-        <span class="brand-copy">
-          <span class="brand-name">RoamRIT</span>
-          <span class="brand-tagline">Discover · Rate · Roam</span>
-        </span>
+      <a class="brand" href="#" aria-label="RoamRIT home" data-nav="explore">
+        <span class="brand-mark" aria-hidden="true">R</span>
+        <span class="brand-name">Roam<em>RIT</em></span>
       </a>
+
       <nav class="main-nav" aria-label="Primary navigation">
-        <button class="nav-btn" type="button" data-nav="explore" aria-selected="true">Explore</button>
-        <button class="nav-btn" type="button" data-nav="feed" aria-selected="false">Live feed</button>
-        <button class="nav-btn" type="button" data-nav="report" aria-selected="false">Add Spot / Review</button>
+        <button class="nav-link" type="button" data-nav="explore" aria-selected="true">Explore</button>
+        <button class="nav-link" type="button" data-nav="saved" aria-selected="false">Saved</button>
       </nav>
+
       <span class="topbar-spacer"></span>
-      <div class="live-label"><span class="live-dot" aria-hidden="true"></span>Live campus spots</div>
+
+      <div class="topbar-actions">
+        <button class="icon-btn" type="button" id="nav-search-btn" aria-label="Search spots">
+          <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="13.2" y1="13.2" x2="18" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+        <button class="btn-ghost" type="button" id="nav-review-btn"><span class="btn-full">Review Spot</span><span class="btn-short">Review</span></button>
+        <button class="btn-solid" type="button" id="nav-add-btn"><span class="btn-full">Add Spot</span><span class="btn-short">Add</span></button>
+      </div>
     </header>
 
     <main class="page">
+
       <section class="view" id="view-explore">
-        <div class="page-heading">
-          <div>
-            <div class="eyebrow">MSRIT · Explore campus</div>
-            <h1 data-text="What are you exploring today?">What are you exploring today?</h1>
+        <div class="hero hero-explore">
+          <div class="hero-copy">
+            <h1>Find your next<br>favorite spot<span class="hero-dot" aria-hidden="true"></span></h1>
+            <p class="hero-sub">Handpicked places around MSRIT — from quiet corners to the busiest hangouts, updated by students like you. <button class="link-quiet" type="button" id="feed-link">See recent activity →</button></p>
           </div>
-          <p class="heading-note">Discover <strong id="place-count">8 places</strong> around MSRIT — from study spots to food, hangouts and quiet corners.</p>
+          <div class="pulse-strip" id="pulse-strip" aria-live="polite"></div>
         </div>
 
-        <div class="control-row">
-          <label class="search-wrap">
-            <span class="search-icon" aria-hidden="true">⌕</span>
+        <div class="ticker" id="hero-ticker" aria-hidden="true">
+          <div class="ticker-track" id="ticker-track"></div>
+        </div>
+
+        <div class="search-row">
+          <label class="search-bar">
+            <span class="search-icon" aria-hidden="true">
+              <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><line x1="13.2" y1="13.2" x2="18" y2="18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </span>
             <span class="sr-only">Search spots</span>
-            <input class="search-input" id="search-input" type="search" placeholder="Search by place, vibe, or amenity..." autocomplete="off">
+            <input class="search-input" id="search-input" type="search" placeholder="Search places, vibes, or amenities..." autocomplete="off">
           </label>
-          <button class="location-btn" type="button" id="location-btn"><span class="location-icon">⌖</span> North campus <span aria-hidden="true">⌄</span></button>
-          <button class="report-btn" type="button" id="report-quick-btn"><span aria-hidden="true">＋</span> Add spot / review</button>
+          <button class="location-chip" type="button" id="location-btn">
+            <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M10 2c-2.9 0-5.2 2.3-5.2 5.2 0 3.9 5.2 10.8 5.2 10.8s5.2-6.9 5.2-10.8C15.2 4.3 12.9 2 10 2Zm0 7.3a2.1 2.1 0 1 1 0-4.2 2.1 2.1 0 0 1 0 4.2Z" fill="currentColor"/></svg>
+            <span class="location-label">North campus</span>
+          </button>
         </div>
 
-        <div class="filter-bar" id="filter-bar" aria-label="Filter spots">
-          <span class="filter-label">Show</span>
+        <div class="toolbar">
+          <div class="chip-row" id="filter-bar" aria-label="Browse by category"></div>
+          <div class="view-toggle" id="view-toggle" role="tablist" aria-label="Show as list or map">
+            <button type="button" class="toggle-btn" data-view="list" aria-pressed="true">List</button>
+            <button type="button" class="toggle-btn" data-view="map" aria-pressed="false">Map</button>
+          </div>
         </div>
 
-        <div class="workspace">
-          <section class="panel map-panel" aria-labelledby="map-title">
-            <div class="panel-heading">
-              <div><h2 id="map-title">Campus map</h2><p class="panel-kicker">Explore places around MSRIT</p></div>
-              <span class="result-count">Updated just now</span>
-            </div>
-            <div class="map-canvas" id="map-canvas" aria-label="Diagram of campus spots">
-              <div class="map-road road-a"></div>
-              <div class="map-road road-b"></div>
-              <div class="map-road road-c"></div>
-              <span class="map-label north">North quad</span>
-              <span class="map-label center">Central walk</span>
-              <span class="map-label south">South gate</span>
-              <span class="north-arrow">N</span>
-              <div class="node-legend">
-                <span class="legend-item"><i class="legend-swatch"></i>Open</span>
-                <span class="legend-item"><i class="legend-swatch amber"></i>Filling</span>
-                <span class="legend-item"><i class="legend-swatch coral"></i>Busy</span>
-              </div>
-            </div>
-            <div class="map-foot"><span><strong id="map-summary">3 open sectors</strong> · based on the last 24 check-ins</span><button type="button" id="refresh-btn">↻ Refresh signal</button></div>
-          </section>
+        <p class="result-line" id="result-count"></p>
 
-          <section class="panel directory-panel" aria-labelledby="directory-title">
-            <div class="panel-heading">
-              <div><h2 id="directory-title">Explore places</h2><p class="panel-kicker">Popular with students right now</p></div>
-              <span class="result-count" id="result-count">8 spots</span>
-            </div>
-            <div class="spot-list" id="spot-list"></div>
-            <div class="empty-state" id="empty-state" hidden><strong>No signal here yet.</strong>Try a wider search or another filter.</div>
-          </section>
+        <div class="place-grid" id="spot-list"></div>
+        <div class="empty-state" id="empty-state" hidden><strong>Nothing here yet.</strong>Try a wider search or another category.</div>
+
+        <section class="map-section" id="map-section" hidden aria-label="Campus map">
+          <div class="map-canvas" id="map-canvas"></div>
+          <p class="map-caption">
+            <span class="legend-dot" style="--c:#2be3a2"></span>Open
+            <span class="legend-dot" style="--c:#ffb020"></span>Filling
+            <span class="legend-dot" style="--c:#ff4d6d"></span>Busy
+            <span class="map-caption-sep">·</span>
+            <span id="map-summary"></span>
+            <button type="button" id="refresh-btn" class="link-quiet">Refresh</button>
+          </p>
+        </section>
+      </section>
+
+      <section class="view" id="view-saved" hidden>
+        <div class="hero">
+          <h1>Your saved spots</h1>
+          <p class="hero-sub">Places you've bookmarked to check out later — your own shortlist of campus.</p>
         </div>
+        <div class="place-grid" id="saved-list"></div>
+        <div class="empty-state" id="saved-empty" hidden><strong>No saved spots yet.</strong>Tap the heart on any place to save it here.</div>
       </section>
 
       <section class="view feed-view" id="view-feed" hidden>
-        <div class="feed-header">
-          <div class="eyebrow">Community signal</div>
-          <h1 data-text="Live feed.">Live feed.</h1>
-          <p>Fresh check-ins from people already on campus. Newer signals carry more weight in the pulse meter.</p>
+        <div class="hero">
+          <h1>Recent activity</h1>
+          <p class="hero-sub">Fresh check-ins from people already on campus, newest first.</p>
         </div>
         <div class="feed-list" id="feed-list"></div>
       </section>
 
       <section class="view report-view" id="view-report" hidden>
-        <div class="report-header">
-          <div class="eyebrow">Community contributions</div>
-          <h1 data-text="Add a spot. Review a spot.">Add a spot. Review a spot.</h1>
-          <p>Use <strong>Add Spot</strong> when a place is missing. Use <strong>Review Spot</strong> when you want to tell other students what an existing place is like right now.</p>
+        <div class="hero">
+          <h1 id="report-heading">Add a spot. Review a spot.</h1>
+          <p class="hero-sub">Use <strong>Add Spot</strong> when a place is missing, or <strong>Review Spot</strong> to tell other students what a place is like right now.</p>
         </div>
 
         <div class="mode-toggle" id="mode-toggle" role="tablist" aria-label="Choose an action">
-          <button class="mode-btn" type="button" data-mode="update" aria-pressed="true" role="tab">★ Review a spot</button>
-          <button class="mode-btn" type="button" data-mode="new" aria-pressed="false" role="tab">＋ Add a new spot</button>
+          <button class="mode-btn" type="button" data-mode="update" aria-pressed="true" role="tab">Review a spot</button>
+          <button class="mode-btn" type="button" data-mode="new" aria-pressed="false" role="tab">Add a new spot</button>
         </div>
 
-        <form class="panel form-panel contribution-form" id="review-form">
+        <form class="form-panel contribution-form" id="review-form">
           <div class="form-title-row">
             <div><h2>Review a spot</h2><p class="panel-kicker">Share your experience with a place that already exists.</p></div>
-            <span class="form-badge">EXISTING SPOT</span>
           </div>
           <div class="form-grid">
             <label class="field full"><span class="field-label">Spot</span><select class="field-input" id="report-spot" required></select></label>
@@ -132,13 +137,12 @@
             <div class="field"><span class="field-label">Comfort <span id="comfort-value">3</span><span>/5</span></span><div class="choice-row" id="comfort-choices"></div></div>
             <label class="field full"><span class="field-label">Your review <span>(optional)</span></span><textarea class="field-input" id="report-note" maxlength="240" placeholder="What should another student know before going?"></textarea></label>
           </div>
-          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-primary" id="submit-review" type="submit" disabled>Post review</button></div>
+          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-solid" id="submit-review" type="submit" disabled>Post review</button></div>
         </form>
 
-        <form class="panel form-panel contribution-form" id="add-spot-form" hidden>
+        <form class="form-panel contribution-form" id="add-spot-form" hidden>
           <div class="form-title-row">
             <div><h2>Add a new spot</h2><p class="panel-kicker">Create a place listing first. You can review it separately afterwards.</p></div>
-            <span class="form-badge">NEW PLACE</span>
           </div>
           <div class="form-grid">
             <label class="field full"><span class="field-label">Spot name</span><input class="field-input" id="new-spot-name" type="text" maxlength="60" placeholder="e.g. Library Rooftop Nook" required></label>
@@ -147,9 +151,10 @@
             <div class="field"><span class="field-label">Pin it on the map</span><div class="mini-map" id="mini-map" role="button" tabindex="0" aria-label="Tap or click to place this spot on the map"><span class="mini-map-hint" id="mini-map-hint">Tap to place</span></div></div>
             <label class="field full"><span class="field-label">Description <span>(optional)</span></span><textarea class="field-input" id="new-spot-description" maxlength="180" placeholder="What's this spot like? Any tips for finding it?"></textarea></label>
           </div>
-          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-primary" id="submit-add-spot" type="submit" disabled>Add spot</button></div>
+          <div class="form-actions"><button class="btn-secondary" type="button" data-nav="explore">Cancel</button><button class="btn-solid" id="submit-add-spot" type="submit" disabled>Add spot</button></div>
         </form>
       </section>
+
     </main>
   </div>
 
