@@ -12,21 +12,26 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="boot-loader" id="boot-loader" aria-hidden="true">
+    <span class="boot-mark">RIT</span>
+  </div>
+
   <div class="ambient" aria-hidden="true">
     <span class="blob blob-a"></span>
     <span class="blob blob-b"></span>
     <span class="blob blob-c"></span>
   </div>
 
-  <div class="app-shell">
+  <div class="app-shell" id="app-shell" hidden>
     <header class="topbar">
       <a class="brand" href="#" aria-label="RoamRIT home" data-nav="explore">
-        <span class="brand-mark" aria-hidden="true">R</span>
+        <span class="brand-mark" aria-hidden="true">RIT</span>
         <span class="brand-name">Roam<em>RIT</em></span>
       </a>
 
       <nav class="main-nav" aria-label="Primary navigation">
         <button class="nav-link" type="button" data-nav="explore" aria-selected="true">Explore</button>
+        <button class="nav-link" type="button" data-nav="community" aria-selected="false">Community</button>
         <button class="nav-link" type="button" data-nav="saved" aria-selected="false">Saved</button>
       </nav>
 
@@ -38,6 +43,7 @@
         </button>
         <button class="btn-ghost" type="button" id="nav-review-btn"><span class="btn-full">Review Spot</span><span class="btn-short">Review</span></button>
         <button class="btn-solid" type="button" id="nav-add-btn"><span class="btn-full">Add Spot</span><span class="btn-short">Add</span></button>
+        <div class="auth-slot" id="auth-slot"></div>
       </div>
     </header>
 
@@ -105,6 +111,33 @@
         <div class="empty-state" id="saved-empty" hidden><strong>No saved spots yet.</strong>Tap the heart on any place to save it here.</div>
       </section>
 
+      <section class="view community-view" id="view-community" hidden>
+        <div class="hero">
+          <h1>Community board</h1>
+          <p class="hero-sub">Say hi, ask questions, share tips — a shared board for everyone on RoamRIT.</p>
+        </div>
+
+        <div class="composer-card" id="composer-card" hidden>
+          <div class="composer-avatar" id="composer-avatar" aria-hidden="true"></div>
+          <form class="composer-form" id="post-form">
+            <textarea class="field-input composer-input" id="post-body" maxlength="500" placeholder="Share something with campus..." required></textarea>
+            <div class="composer-actions">
+              <span class="composer-count" id="post-count">0/500</span>
+              <button class="btn-solid" type="submit" id="submit-post" disabled>Post</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="login-gate" id="community-login-gate" hidden>
+          <strong>Log in to post</strong>
+          <p>Anyone can read the board, but you'll need an account to post.</p>
+          <button class="btn-solid" type="button" id="community-login-btn">Log in / Sign up</button>
+        </div>
+
+        <div class="post-list" id="post-list"></div>
+        <div class="empty-state" id="post-empty" hidden><strong>No posts yet.</strong>Be the first to say something.</div>
+      </section>
+
       <section class="view feed-view" id="view-feed" hidden>
         <div class="hero">
           <h1>Recent activity</h1>
@@ -160,6 +193,8 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div id="drawer-root"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="supabase-config.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

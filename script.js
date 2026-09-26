@@ -22,8 +22,6 @@
     { key: "hangout", label: "Hangout", icon: CATEGORIES.hangout.icon }
   ];
   var VIBES = ["Chill", "Focused", "Buzzing", "Packed", "Sleepy"];
-  var uid = 200;
-  function nextId() { return uid++; }
   function now() { return Date.now(); }
   function slugify(name) {
     var base = String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "spot";
@@ -31,26 +29,60 @@
     while (spots.some(function (spot) { return spot.id === id; })) { id = base + "-" + n; n++; }
     return id;
   }
-  function update(minsBack, vibe, noise, outlets, comfort, note) {
-    return { id: nextId(), timestamp: now() - minsBack * 60000, vibe: vibe, noise: noise, outlets: outlets, comfort: comfort, note: note || "" };
+
+  /* ----- Supabase ----- */
+  var supabase = (window.supabase && window.SUPABASE_URL && window.SUPABASE_ANON_KEY)
+    ? window.supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
+    : null;
+
+  function checkinFromRow(row) {
+    return { id: row.id, timestamp: new Date(row.created_at).getTime(), vibe: row.vibe, noise: row.noise, outlets: row.outlets, comfort: row.comfort, note: row.note || "" };
   }
-  var spots = [
-    { id: "library-east", name: "Library · 3rd Floor East", category: "study", sector: "North quad", x: 28, y: 29, distanceMin: 4, rating: 4.7, description: "Silent-study wing with individual desks along the windows.", updates: [update(2, "Focused", 1, 5, 4, "Basically empty, every outlet free."), update(58, "Focused", 2, 5, 4, "")] },
-    { id: "union-yard", name: "Student Union Courtyard", category: "hangout", sector: "Central walk", x: 54, y: 54, distanceMin: 6, rating: 4.3, description: "Open-air courtyard with picnic tables and string lights.", updates: [update(4, "Buzzing", 4, 2, 3, "Packed but a table just opened near the fountain."), update(44, "Chill", 3, 2, 3, "")] },
-    { id: "cs-lounge", name: "CS Building Lounge", category: "study", sector: "North quad", x: 68, y: 23, distanceMin: 9, rating: 4.8, description: "Beanbags and low tables outside the compiler lab.", updates: [update(15, "Chill", 2, 5, 5, "Whole lounge to ourselves, great for a group call."), update(187, "Buzzing", 4, 5, 4, "")] },
-    { id: "rooftop-garden", name: "Rooftop Garden", category: "chill", sector: "Arts block", x: 78, y: 70, distanceMin: 12, rating: 4.5, description: "A planted terrace on top of the arts building. Bring a jacket.", updates: [update(30, "Sleepy", 1, 1, 3, "Nobody up here. Quiet enough to read.")] },
-    { id: "cafeteria-annex", name: "Cafeteria Annex", category: "food", sector: "South gate", x: 25, y: 72, distanceMin: 5, rating: 3.9, description: "Overflow seating next to the dining hall with plugs on the back wall.", updates: [update(2, "Packed", 4, 3, 2, "Line's out the door; annex seating is the move."), update(60, "Buzzing", 3, 3, 2, "")] },
-    { id: "quad-lawn", name: "The Quad Lawn", category: "hangout", sector: "Central walk", x: 47, y: 29, distanceMin: 7, rating: 4.1, description: "Central grass lawn. Frisbee territory on sunny afternoons.", updates: [update(120, "Sleepy", 1, 1, 3, "Empty this early, good for reading.")] },
-    { id: "eng-atrium", name: "Engineering Atrium", category: "study", sector: "East walk", x: 78, y: 43, distanceMin: 10, rating: 4.6, description: "Glass-roofed atrium with long communal tables and reliable outlets.", updates: [update(25, "Focused", 3, 5, 3, "Half full, plenty of outlets left on the east side.")] },
-    { id: "cafe-corner", name: "Off-Campus Café Corner", category: "chill", sector: "South gate", x: 22, y: 47, distanceMin: 3, rating: 4.9, description: "Independent café two minutes off the main gate with solid wifi.", updates: [update(50, "Chill", 2, 4, 5, "Comfy corner booth open, wifi's solid.")] }
-  ];
-  var state = { filter: "all", search: "", selected: null, activeView: "explore", viewMode: "list", saved: {} };
+  function spotFromRow(row, checkinRows) {
+    return {
+      id: row.id, name: row.name, category: row.category, sector: row.sector,
+      x: Number(row.x), y: Number(row.y), distanceMin: row.distance_min,
+      rating: row.rating === null ? null : Number(row.rating),
+      description: row.description || "",
+      updates: (checkinRows || []).map(checkinFromRow)
+    };
+  }
+
+  /* spots/checkins start empty and are filled in by loadData() once Supabase responds */
+  var spots = [];
+  var state = { filter: "all", search: "", selected: null, activeView: "explore", viewMode: "list", saved: loadSavedFromStorage() };
+
+  /* ----- auth + community board state ----- */
+  var session = null;
+  var posts = [];
+  function currentUserId() { return session && session.user ? session.user.id : null; }
+  function currentDisplayName() {
+    if (!session || !session.user) return "";
+    var meta = session.user.user_metadata || {};
+    return meta.display_name || (session.user.email ? session.user.email.split("@")[0] : "You");
+  }
+  function initials(name) {
+    var parts = String(name || "?").trim().split(/\s+/);
+    var chars = parts.slice(0, 2).map(function (part) { return part.charAt(0).toUpperCase(); }).join("");
+    return chars || "?";
+  }
   var formState = {
     mode: "update",
-    spot: spots[0].id,
+    spot: null,
     vibe: null, rating: null, noise: 3, outlets: 3, comfort: 3,
     newSpot: { name: "", category: "study", sector: "", x: null, y: null }
   };
+
+  /* ----- saved spots persist per-browser in localStorage (not shared via Supabase) ----- */
+  function loadSavedFromStorage() {
+    try {
+      var raw = window.localStorage.getItem("roamrit-saved");
+      return raw ? JSON.parse(raw) : {};
+    } catch (err) { return {}; }
+  }
+  function persistSaved() {
+    try { window.localStorage.setItem("roamrit-saved", JSON.stringify(state.saved)); } catch (err) { /* storage unavailable, ignore */ }
+  }
 
   function escapeHTML(value) {
     return String(value).replace(/[&<>"']/g, function (char) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[char]; });
@@ -162,6 +194,7 @@
     if (!spot) return;
     if (state.saved[id]) { delete state.saved[id]; showToast("Removed from saved"); }
     else { state.saved[id] = true; showToast("Saved " + spot.name); }
+    persistSaved();
     if (state.activeView === "saved") renderSavedView(); else renderList(matchingSpots());
   }
 
@@ -273,6 +306,7 @@
     if (view === "feed") renderFeed();
     if (view === "saved") renderSavedView();
     if (view === "explore") renderPulseStrip();
+    if (view === "community") { renderCommunity(); loadPosts(); }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   document.querySelectorAll("[data-nav]").forEach(function (button) {
@@ -507,35 +541,72 @@
     if (!formState.spot || !formState.vibe || !formState.rating) return;
     var spot = spots.find(function (item) { return item.id === formState.spot; });
     if (!spot) return;
-    spot.updates.push(update(0, formState.vibe, formState.noise, formState.outlets, formState.comfort, document.getElementById("report-note").value.trim()));
-    spot.rating = formState.rating;
-    resetReviewForm();
-    renderExplore();
-    renderFeed();
-    showToast("Your review is live on RoamRIT");
-    switchView("explore");
+    var note = document.getElementById("report-note").value.trim();
+    var button = document.getElementById("submit-review");
+    var payload = { spot_id: spot.id, vibe: formState.vibe, noise: formState.noise, outlets: formState.outlets, comfort: formState.comfort, note: note };
+    var rating = formState.rating;
+
+    if (!supabase) { showToast("Supabase isn't configured yet — see supabase-config.js"); return; }
+    button.disabled = true;
+
+    supabase.from("checkins").insert(payload).select().single()
+      .then(function (result) {
+        if (result.error) throw result.error;
+        return supabase.from("spots").update({ rating: rating }).eq("id", spot.id).then(function (updateResult) {
+          if (updateResult.error) throw updateResult.error;
+          return result.data;
+        });
+      })
+      .then(function (row) {
+        spot.updates.push(checkinFromRow(row));
+        spot.rating = rating;
+        resetReviewForm();
+        renderExplore();
+        renderFeed();
+        showToast("Your review is live on RoamRIT");
+        switchView("explore");
+      })
+      .catch(function (err) {
+        console.error(err);
+        showToast("Couldn't post that review — try again");
+        button.disabled = false;
+      });
   });
   document.getElementById("add-spot-form").addEventListener("submit", function (event) {
     event.preventDefault();
     var n = formState.newSpot;
     var name = document.getElementById("new-spot-name").value.trim();
     if (!name || !n.sector || n.x === null || n.y === null) { updateAddSpotSubmitState(); return; }
-    var newSpot = {
+    if (!supabase) { showToast("Supabase isn't configured yet — see supabase-config.js"); return; }
+
+    var button = document.getElementById("submit-add-spot");
+    button.disabled = true;
+    var payload = {
       id: slugify(name), name: name, category: n.category, sector: n.sector, x: n.x, y: n.y,
-      distanceMin: Math.max(1, Math.round(3 + Math.random() * 10)),
-      description: document.getElementById("new-spot-description").value.trim(),
-      updates: []
+      distance_min: Math.max(1, Math.round(3 + Math.random() * 10)),
+      description: document.getElementById("new-spot-description").value.trim()
     };
-    spots.push(newSpot);
-    resetAddSpotForm();
-    renderReportSpot();
-    renderSectorList();
-    renderFilters();
-    renderExplore();
-    renderFeed();
-    showToast("\u201c" + name + "\u201d was added to RoamRIT");
-    switchView("explore");
-    openDetail(newSpot.id);
+
+    supabase.from("spots").insert(payload).select().single()
+      .then(function (result) {
+        if (result.error) throw result.error;
+        var newSpot = spotFromRow(result.data, []);
+        spots.push(newSpot);
+        resetAddSpotForm();
+        renderReportSpot();
+        renderSectorList();
+        renderFilters();
+        renderExplore();
+        renderFeed();
+        showToast("\u201c" + name + "\u201d was added to RoamRIT");
+        switchView("explore");
+        openDetail(newSpot.id);
+      })
+      .catch(function (err) {
+        console.error(err);
+        showToast("Couldn't add that spot — try again");
+        button.disabled = false;
+      });
   });
 
   function showToast(message) {
@@ -546,14 +617,200 @@
     showToast.timer = setTimeout(function () { toast.classList.remove("show"); }, 2400);
   }
 
-  renderFilters();
-  renderReportSpot();
-  renderSectorList();
-  renderCategoryChoices();
-  renderMiniMap();
-  setReportMode("update");
-  renderFormChoices();
-  updateReviewSubmitState();
-  renderExplore();
-  renderFeed();
+  function renderShell() {
+    renderFilters();
+    renderReportSpot();
+    renderSectorList();
+    renderCategoryChoices();
+    renderMiniMap();
+    setReportMode("update");
+    renderFormChoices();
+    updateReviewSubmitState();
+    renderExplore();
+    renderFeed();
+  }
+
+  /* ----- auth slot in the topbar ----- */
+  function renderAuthSlot() {
+    var slot = document.getElementById("auth-slot");
+    if (!slot) return;
+    if (session && session.user) {
+      var name = currentDisplayName();
+      slot.innerHTML =
+        '<div class="user-pill"><span class="avatar-circle">' + escapeHTML(initials(name)) + '</span>' +
+        '<span class="user-pill-name">' + escapeHTML(name) + '</span>' +
+        '<button class="user-pill-logout" type="button" id="logout-btn" aria-label="Log out" title="Log out">' +
+        '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4.8A1.8 1.8 0 0 0 3 4.8v10.4A1.8 1.8 0 0 0 4.8 17H8M13 14l4-4-4-4M17 10H7"/></svg></button></div>';
+      document.getElementById("logout-btn").addEventListener("click", function () {
+        if (!supabase) return;
+        supabase.auth.signOut().then(function () { window.location.href = "login.html"; });
+      });
+    } else {
+      slot.innerHTML = '<a class="auth-login-btn" href="login.html" id="login-nav-btn">Log in</a>';
+    }
+  }
+  var communityLoginBtn = document.getElementById("community-login-btn");
+  if (communityLoginBtn) communityLoginBtn.addEventListener("click", function () { window.location.href = "login.html"; });
+
+  /* ----- community board ----- */
+  function postFromRow(row) {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      body: row.body,
+      timestamp: new Date(row.created_at).getTime(),
+      authorName: (row.profiles && row.profiles.display_name) || "Student"
+    };
+  }
+  function loadPosts() {
+    if (!supabase) return;
+    supabase.from("posts").select("*, profiles(display_name)").order("created_at", { ascending: false })
+      .then(function (result) {
+        if (result.error) throw result.error;
+        posts = (result.data || []).map(postFromRow);
+        renderCommunity();
+      })
+      .catch(function (err) { console.error(err); showToast("Couldn't load the community board"); });
+  }
+  function renderCommunity() {
+    var composer = document.getElementById("composer-card");
+    var gate = document.getElementById("community-login-gate");
+    if (!composer || !gate) return;
+    var loggedIn = !!currentUserId();
+    composer.hidden = !loggedIn;
+    gate.hidden = loggedIn;
+    if (loggedIn) document.getElementById("composer-avatar").textContent = initials(currentDisplayName());
+    var listEl = document.getElementById("post-list");
+    var emptyEl = document.getElementById("post-empty");
+    emptyEl.hidden = posts.length !== 0;
+    listEl.innerHTML = posts.map(function (post) {
+      var mine = post.userId === currentUserId();
+      return '<article class="post-item"><div class="post-head"><span class="avatar-circle">' + escapeHTML(initials(post.authorName)) + '</span>' +
+        '<span class="post-author">' + escapeHTML(post.authorName) + '</span>' +
+        '<span class="post-time">' + relativeTime(post.timestamp) + '</span>' +
+        (mine ? '<button class="post-delete" type="button" data-delete-post="' + post.id + '" aria-label="Delete post"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h12M8 6V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V6m-7 0 .6 9.4A2 2 0 0 0 7.6 17h4.8a2 2 0 0 0 2-1.6L15 6"/></svg></button>' : "") +
+        '</div><p class="post-body">' + escapeHTML(post.body) + '</p></article>';
+    }).join("");
+    listEl.querySelectorAll("[data-delete-post]").forEach(function (button) {
+      button.addEventListener("click", function () { deletePost(button.dataset.deletePost); });
+    });
+  }
+  function deletePost(id) {
+    if (!supabase) return;
+    supabase.from("posts").delete().eq("id", id)
+      .then(function (result) {
+        if (result.error) throw result.error;
+        posts = posts.filter(function (post) { return post.id !== id; });
+        renderCommunity();
+        showToast("Post removed");
+      })
+      .catch(function (err) { console.error(err); showToast("Couldn't delete that post"); });
+  }
+  var postBodyEl = document.getElementById("post-body");
+  if (postBodyEl) {
+    postBodyEl.addEventListener("input", function () {
+      document.getElementById("post-count").textContent = postBodyEl.value.length + "/500";
+      document.getElementById("submit-post").disabled = !postBodyEl.value.trim();
+    });
+  }
+  var postForm = document.getElementById("post-form");
+  if (postForm) {
+    postForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var body = postBodyEl.value.trim();
+      var uid = currentUserId();
+      if (!body) return;
+      if (!supabase || !uid) { showToast("Log in to post"); return; }
+      var button = document.getElementById("submit-post");
+      button.disabled = true;
+      supabase.from("posts").insert({ user_id: uid, body: body }).select("*, profiles(display_name)").single()
+        .then(function (result) {
+          if (result.error) throw result.error;
+          posts.unshift(postFromRow(result.data));
+          postBodyEl.value = "";
+          document.getElementById("post-count").textContent = "0/500";
+          renderCommunity();
+          showToast("Posted to the community board");
+        })
+        .catch(function (err) {
+          console.error(err);
+          showToast("Couldn't post that — try again");
+          button.disabled = !postBodyEl.value.trim();
+        });
+    });
+  }
+
+  /* ----- session bootstrap: this page requires a logged-in user ----- */
+  function revealApp() {
+    var loader = document.getElementById("boot-loader");
+    var shell = document.getElementById("app-shell");
+    if (loader) loader.hidden = true;
+    if (shell) shell.hidden = false;
+  }
+  function goToLogin() {
+    window.location.replace("login.html");
+  }
+  var appRevealed = false;
+  if (supabase) {
+    supabase.auth.getSession().then(function (result) {
+      session = (result.data && result.data.session) || null;
+      if (!session) { goToLogin(); return; }
+      appRevealed = true;
+      renderAuthSlot();
+      revealApp();
+    }).catch(function () {
+      /* Couldn't reach Supabase to check the session — send to login rather
+         than silently showing an app that can't load any data. */
+      goToLogin();
+    });
+    supabase.auth.onAuthStateChange(function (event, newSession) {
+      session = newSession;
+      if (!session) {
+        if (appRevealed) goToLogin();
+        return;
+      }
+      renderAuthSlot();
+      if (state.activeView === "community") renderCommunity();
+    });
+  } else {
+    /* Supabase isn't configured at all — reveal the app anyway so the
+       existing "Supabase isn't configured" messaging from loadData() shows,
+       instead of silently redirecting in a loop. */
+    renderAuthSlot();
+    revealApp();
+  }
+
+  function loadData() {
+    if (!supabase) {
+      document.getElementById("result-count").textContent = "Supabase isn't configured — edit supabase-config.js";
+      renderShell();
+      return;
+    }
+    Promise.all([
+      supabase.from("spots").select("*").order("created_at", { ascending: true }),
+      supabase.from("checkins").select("*").order("created_at", { ascending: true })
+    ]).then(function (results) {
+      var spotsResult = results[0], checkinsResult = results[1];
+      if (spotsResult.error) throw spotsResult.error;
+      if (checkinsResult.error) throw checkinsResult.error;
+      var checkinsBySpot = {};
+      (checkinsResult.data || []).forEach(function (row) {
+        (checkinsBySpot[row.spot_id] = checkinsBySpot[row.spot_id] || []).push(row);
+      });
+      spots.length = 0;
+      (spotsResult.data || []).forEach(function (row) {
+        spots.push(spotFromRow(row, checkinsBySpot[row.id]));
+      });
+      if (spots.length && !spots.some(function (spot) { return spot.id === formState.spot; })) {
+        formState.spot = spots[0].id;
+      }
+      renderShell();
+    }).catch(function (err) {
+      console.error(err);
+      showToast("Couldn't load RoamRIT data from Supabase");
+      renderShell();
+    });
+  }
+
+  loadData();
 })();

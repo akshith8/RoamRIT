@@ -178,6 +178,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   padding: clamp(32px, 5vw, 60px) clamp(18px, 4vw, 56px) 96px;
 }
 .view[hidden] { display: none; }
+/* Belt-and-suspenders: several components below (boot-loader, auth-shell,
+   .field, .composer-card, etc.) set their own `display` value, which beats
+   the browser's built-in `[hidden] { display: none }` rule regardless of
+   selector specificity, because that built-in rule lives in the lowest-
+   priority "user agent" style layer. Without this override, toggling an
+   element's `hidden` property/attribute in JS silently does nothing for any
+   element whose class also sets `display`. This single rule guarantees
+   `hidden` always wins, everywhere in the app. */
+[hidden] { display: none !important; }
 h1, h2, h3, p { margin: 0; }
 h1, h2, h3 { font-family: var(--display); letter-spacing: -.03em; color: var(--text); }
 
@@ -688,6 +697,114 @@ textarea.field-input { min-height: 88px; resize: vertical; }
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ----- auth slot (topbar) ----- */
+.auth-slot { display: flex; align-items: center; flex-shrink: 0; }
+.auth-login-btn {
+  height: 42px; display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 18px; border-radius: 12px; font-size: 13.5px; font-weight: 700;
+  cursor: pointer; white-space: nowrap; border: 2px solid var(--line); background: transparent; color: var(--text);
+  text-decoration: none;
+  transition: transform .16s var(--ease-pop), border-color .16s, color .16s;
+}
+.auth-login-btn:hover { border-color: var(--indigo-bright); color: var(--indigo-bright); transform: translateY(-1px); }
+.user-pill {
+  display: inline-flex; align-items: center; gap: 9px;
+  border: 2px solid var(--line); border-radius: 999px;
+  padding: 5px 6px 5px 5px; background: var(--surface);
+}
+.avatar-circle {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--indigo); color: #fff;
+  font: 700 12.5px var(--display);
+}
+.user-pill-name { color: var(--text); font-size: 13px; font-weight: 700; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-pill-logout {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  transition: background .15s, color .15s;
+}
+.user-pill-logout:hover { background: var(--surface-hover); color: var(--coral); }
+.user-pill-logout svg { width: 15px; height: 15px; }
+
+/* ----- community board ----- */
+.community-view { max-width: 720px; }
+.composer-card {
+  display: flex; gap: 14px; align-items: flex-start;
+  border: 2px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); padding: 18px 20px; margin-bottom: 22px;
+}
+.composer-avatar { width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; background: var(--indigo); color: #fff; display: grid; place-items: center; font: 700 14px var(--display); }
+.composer-form { flex: 1; display: grid; gap: 10px; }
+.composer-input { min-height: 70px; resize: vertical; }
+.composer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.composer-count { color: var(--muted-2); font-size: 11.5px; font-family: var(--mono); }
+.login-gate {
+  border: 2px dashed var(--line); border-radius: var(--radius-lg);
+  padding: 26px 24px; text-align: center; margin-bottom: 22px;
+}
+.login-gate strong { display: block; font: 700 17px var(--display); color: var(--text); margin-bottom: 6px; }
+.login-gate p { color: var(--muted); font-size: 13.5px; margin-bottom: 16px; }
+.post-list { display: grid; gap: 12px; }
+.post-item {
+  border: 2px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); padding: 16px 18px;
+}
+.post-head { display: flex; align-items: center; gap: 10px; }
+.post-head .avatar-circle { width: 30px; height: 30px; font-size: 12px; }
+.post-author { color: var(--text); font-weight: 700; font-size: 13.5px; font-family: var(--display); }
+.post-time { color: var(--muted-2); font-size: 11px; font-family: var(--mono); margin-left: auto; }
+.post-delete {
+  border: 0; background: transparent; color: var(--muted-2); cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+  transition: background .15s, color .15s;
+}
+.post-delete:hover { background: var(--surface-hover); color: var(--coral); }
+.post-delete svg { width: 13px; height: 13px; }
+.post-body { color: var(--text); font-size: 14px; line-height: 1.6; margin-top: 10px; white-space: pre-wrap; }
+
+/* ----- auth (login / sign up) ----- */
+.auth-view { max-width: 480px; }
+.auth-error {
+  color: var(--coral); background: var(--coral-soft); border: 1px solid var(--coral);
+  border-radius: 10px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5;
+}
+
+/* ----- boot loader (shown while the session is checked) ----- */
+.boot-loader {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  background: var(--ink);
+}
+.boot-mark {
+  width: 52px; height: 52px;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  color: var(--ink);
+  background: var(--lime);
+  font: 800 20px var(--display);
+  animation: boot-pulse 1.1s var(--ease) infinite;
+}
+@keyframes boot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: .82; }
+}
+
+/* ----- standalone login/sign-up page ----- */
+.auth-shell {
+  position: relative; z-index: 1;
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center;
+  padding: clamp(28px, 6vw, 64px) 20px 60px;
+}
+.auth-brand { margin-bottom: clamp(28px, 6vh, 64px); }
+.auth-standalone { width: 100%; max-width: 440px; margin: 0; }
+.auth-standalone .hero { text-align: center; max-width: none; margin-bottom: 24px; }
+.auth-standalone .hero h1 { font-size: clamp(26px, 4vw, 32px); }
+.auth-standalone .mode-toggle { display: flex; width: 100%; margin-bottom: 20px; }
+.auth-standalone .mode-btn { flex: 1; text-align: center; }
+.auth-standalone > .auth-error { margin-bottom: 18px; }
+
 /* ----- responsive ----- */
 @media (max-width: 900px) {
   .place-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
@@ -720,6 +837,10 @@ textarea.field-input { min-height: 88px; resize: vertical; }
   .feed-item { grid-template-columns: 4px 1fr; }
   .feed-time { grid-column: 2; }
   .blob { display: none; }
+  .user-pill-name { display: none; }
+  .user-pill { padding: 4px; }
+  .auth-login-btn { padding: 0 13px; font-size: 12.5px; height: 38px; }
+  .composer-card { padding: 14px 15px; gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
