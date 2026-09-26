@@ -32,6 +32,7 @@
       <nav class="main-nav" aria-label="Primary navigation">
         <button class="nav-link" type="button" data-nav="explore" aria-selected="true">Explore</button>
         <button class="nav-link" type="button" data-nav="community" aria-selected="false">Community</button>
+        <button class="nav-link" type="button" data-nav="leaderboard" aria-selected="false">Leaderboard</button>
         <button class="nav-link" type="button" data-nav="saved" aria-selected="false">Saved</button>
       </nav>
 
@@ -120,6 +121,11 @@
         <div class="composer-card" id="composer-card" hidden>
           <div class="composer-avatar" id="composer-avatar" aria-hidden="true"></div>
           <form class="composer-form" id="post-form">
+            <label class="field full composer-spot-field"><span class="field-label">Which spot is this about?</span>
+              <select class="field-input" id="post-spot" required>
+                <option value="" disabled selected>Choose a spot...</option>
+              </select>
+            </label>
             <textarea class="field-input composer-input" id="post-body" maxlength="500" placeholder="Share something with campus..." required></textarea>
             <div class="composer-actions">
               <span class="composer-count" id="post-count">0/500</span>
@@ -136,6 +142,15 @@
 
         <div class="post-list" id="post-list"></div>
         <div class="empty-state" id="post-empty" hidden><strong>No posts yet.</strong>Be the first to say something.</div>
+      </section>
+
+      <section class="view leaderboard-view" id="view-leaderboard" hidden>
+        <div class="hero">
+          <h1>Leaderboard</h1>
+          <p class="hero-sub">Earn points for contributing to RoamRIT — <strong>+20</strong> for adding a new spot, <strong>+10</strong> for reviewing one, <strong>+5</strong> for posting to the community board.</p>
+        </div>
+        <div class="leaderboard-list" id="leaderboard-list"></div>
+        <div class="empty-state" id="leaderboard-empty" hidden><strong>No scores yet.</strong>Be the first to earn points on RoamRIT.</div>
       </section>
 
       <section class="view feed-view" id="view-feed" hidden>

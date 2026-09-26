@@ -55,7 +55,30 @@
   /* ----- auth + community board state ----- */
   var session = null;
   var posts = [];
+  var myProfile = { points: 0 };
+  var communityPostSpot = null;
   function currentUserId() { return session && session.user ? session.user.id : null; }
+  function pointsBadgeHTML(points) {
+    return '<span class="points-badge">\u2726 ' + (points || 0) + '</span>';
+  }
+  function bumpMyPoints(amount) {
+    myProfile.points = (myProfile.points || 0) + amount;
+    renderAuthSlot();
+    if (state.activeView === "community") renderCommunity();
+    if (state.activeView === "leaderboard") loadLeaderboard();
+  }
+  function loadMyProfile() {
+    var uid = currentUserId();
+    if (!supabase || !uid) return;
+    supabase.from("profiles").select("points").eq("id", uid).single()
+      .then(function (result) {
+        if (result.error) throw result.error;
+        myProfile.points = (result.data && result.data.points) || 0;
+        renderAuthSlot();
+        if (state.activeView === "community") renderCommunity();
+      })
+      .catch(function (err) { console.error(err); });
+  }
   function currentDisplayName() {
     if (!session || !session.user) return "";
     var meta = session.user.user_metadata || {};
@@ -307,6 +330,7 @@
     if (view === "saved") renderSavedView();
     if (view === "explore") renderPulseStrip();
     if (view === "community") { renderCommunity(); loadPosts(); }
+    if (view === "leaderboard") loadLeaderboard();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   document.querySelectorAll("[data-nav]").forEach(function (button) {
@@ -397,6 +421,14 @@
   function renderReportSpot() {
     document.getElementById("report-spot").innerHTML = spots.map(function (spot) { return '<option value="' + spot.id + '">' + escapeHTML(spot.name) + '</option>'; }).join("");
     document.getElementById("report-spot").value = formState.spot;
+  }
+  function renderPostSpotOptions() {
+    var select = document.getElementById("post-spot");
+    if (!select) return;
+    var options = '<option value="" disabled' + (communityPostSpot ? "" : " selected") + '>Choose a spot...</option>' +
+      spots.map(function (spot) { return '<option value="' + spot.id + '">' + escapeHTML(spot.name) + '</option>'; }).join("");
+    select.innerHTML = options;
+    select.value = communityPostSpot || "";
   }
   function updateFormStateLabel(id, value) { document.getElementById(id).textContent = value; }
   function renderCategoryChoices() {
@@ -543,7 +575,7 @@
     if (!spot) return;
     var note = document.getElementById("report-note").value.trim();
     var button = document.getElementById("submit-review");
-    var payload = { spot_id: spot.id, vibe: formState.vibe, noise: formState.noise, outlets: formState.outlets, comfort: formState.comfort, note: note };
+    var payload = { spot_id: spot.id, vibe: formState.vibe, noise: formState.noise, outlets: formState.outlets, comfort: formState.comfort, note: note, user_id: currentUserId() };
     var rating = formState.rating;
 
     if (!supabase) { showToast("Supabase isn't configured yet — see supabase-config.js"); return; }
@@ -563,7 +595,8 @@
         resetReviewForm();
         renderExplore();
         renderFeed();
-        showToast("Your review is live on RoamRIT");
+        bumpMyPoints(10);
+        showToast("Your review is live on RoamRIT \u00b7 +10 points");
         switchView("explore");
       })
       .catch(function (err) {
@@ -584,7 +617,8 @@
     var payload = {
       id: slugify(name), name: name, category: n.category, sector: n.sector, x: n.x, y: n.y,
       distance_min: Math.max(1, Math.round(3 + Math.random() * 10)),
-      description: document.getElementById("new-spot-description").value.trim()
+      description: document.getElementById("new-spot-description").value.trim(),
+      user_id: currentUserId()
     };
 
     supabase.from("spots").insert(payload).select().single()
@@ -594,11 +628,13 @@
         spots.push(newSpot);
         resetAddSpotForm();
         renderReportSpot();
+        renderPostSpotOptions();
         renderSectorList();
         renderFilters();
         renderExplore();
         renderFeed();
-        showToast("\u201c" + name + "\u201d was added to RoamRIT");
+        bumpMyPoints(20);
+        showToast("\u201c" + name + "\u201d was added to RoamRIT \u00b7 +20 points");
         switchView("explore");
         openDetail(newSpot.id);
       })
@@ -620,6 +656,7 @@
   function renderShell() {
     renderFilters();
     renderReportSpot();
+    renderPostSpotOptions();
     renderSectorList();
     renderCategoryChoices();
     renderMiniMap();
@@ -639,6 +676,7 @@
       slot.innerHTML =
         '<div class="user-pill"><span class="avatar-circle">' + escapeHTML(initials(name)) + '</span>' +
         '<span class="user-pill-name">' + escapeHTML(name) + '</span>' +
+        pointsBadgeHTML(myProfile.points) +
         '<button class="user-pill-logout" type="button" id="logout-btn" aria-label="Log out" title="Log out">' +
         '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H4.8A1.8 1.8 0 0 0 3 4.8v10.4A1.8 1.8 0 0 0 4.8 17H8M13 14l4-4-4-4M17 10H7"/></svg></button></div>';
       document.getElementById("logout-btn").addEventListener("click", function () {
@@ -652,6 +690,36 @@
   var communityLoginBtn = document.getElementById("community-login-btn");
   if (communityLoginBtn) communityLoginBtn.addEventListener("click", function () { window.location.href = "login.html"; });
 
+  /* ----- leaderboard ----- */
+  function loadLeaderboard() {
+    var listEl = document.getElementById("leaderboard-list");
+    var emptyEl = document.getElementById("leaderboard-empty");
+    if (!listEl) return;
+    if (!supabase) { emptyEl.hidden = false; listEl.innerHTML = ""; return; }
+    supabase.from("profiles").select("id, display_name, points").order("points", { ascending: false }).limit(20)
+      .then(function (result) {
+        if (result.error) throw result.error;
+        renderLeaderboard(result.data || []);
+      })
+      .catch(function (err) { console.error(err); showToast("Couldn't load the leaderboard"); });
+  }
+  function renderLeaderboard(rows) {
+    var listEl = document.getElementById("leaderboard-list");
+    var emptyEl = document.getElementById("leaderboard-empty");
+    if (!listEl) return;
+    emptyEl.hidden = rows.length !== 0;
+    var uid = currentUserId();
+    listEl.innerHTML = rows.map(function (row, index) {
+      var mine = row.id === uid;
+      return '<div class="leaderboard-item' + (mine ? " is-me" : "") + '">' +
+        '<span class="leaderboard-rank">' + (index + 1) + '</span>' +
+        '<span class="avatar-circle">' + escapeHTML(initials(row.display_name)) + '</span>' +
+        '<span class="leaderboard-name">' + escapeHTML(row.display_name || "Student") + (mine ? ' <em>(you)</em>' : "") + '</span>' +
+        pointsBadgeHTML(row.points) +
+      '</div>';
+    }).join("");
+  }
+
   /* ----- community board ----- */
   function postFromRow(row) {
     return {
@@ -659,12 +727,15 @@
       userId: row.user_id,
       body: row.body,
       timestamp: new Date(row.created_at).getTime(),
-      authorName: (row.profiles && row.profiles.display_name) || "Student"
+      authorName: (row.profiles && row.profiles.display_name) || "Student",
+      authorPoints: (row.profiles && row.profiles.points) || 0,
+      spotId: row.spot_id,
+      spotName: (row.spots && row.spots.name) || null
     };
   }
   function loadPosts() {
     if (!supabase) return;
-    supabase.from("posts").select("*, profiles(display_name)").order("created_at", { ascending: false })
+    supabase.from("posts").select("*, profiles(display_name, points), spots(name)").order("created_at", { ascending: false })
       .then(function (result) {
         if (result.error) throw result.error;
         posts = (result.data || []).map(postFromRow);
@@ -679,7 +750,11 @@
     var loggedIn = !!currentUserId();
     composer.hidden = !loggedIn;
     gate.hidden = loggedIn;
-    if (loggedIn) document.getElementById("composer-avatar").textContent = initials(currentDisplayName());
+    if (loggedIn) {
+      document.getElementById("composer-avatar").textContent = initials(currentDisplayName());
+      renderPostSpotOptions();
+      updatePostSubmitState();
+    }
     var listEl = document.getElementById("post-list");
     var emptyEl = document.getElementById("post-empty");
     emptyEl.hidden = posts.length !== 0;
@@ -687,12 +762,23 @@
       var mine = post.userId === currentUserId();
       return '<article class="post-item"><div class="post-head"><span class="avatar-circle">' + escapeHTML(initials(post.authorName)) + '</span>' +
         '<span class="post-author">' + escapeHTML(post.authorName) + '</span>' +
+        pointsBadgeHTML(post.authorPoints) +
         '<span class="post-time">' + relativeTime(post.timestamp) + '</span>' +
         (mine ? '<button class="post-delete" type="button" data-delete-post="' + post.id + '" aria-label="Delete post"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h12M8 6V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V6m-7 0 .6 9.4A2 2 0 0 0 7.6 17h4.8a2 2 0 0 0 2-1.6L15 6"/></svg></button>' : "") +
-        '</div><p class="post-body">' + escapeHTML(post.body) + '</p></article>';
+        '</div>' +
+        (post.spotId ? '<button class="post-spot-tag" type="button" data-open-spot="' + post.spotId + '">\uD83D\uDCCD ' + escapeHTML(post.spotName || "View spot") + '</button>' : "") +
+        '<p class="post-body">' + escapeHTML(post.body) + '</p></article>';
     }).join("");
     listEl.querySelectorAll("[data-delete-post]").forEach(function (button) {
       button.addEventListener("click", function () { deletePost(button.dataset.deletePost); });
+    });
+    listEl.querySelectorAll("[data-open-spot]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        var id = button.dataset.openSpot;
+        if (!spots.some(function (spot) { return spot.id === id; })) { showToast("That spot isn't around anymore"); return; }
+        switchView("explore");
+        openDetail(id);
+      });
     });
   }
   function deletePost(id) {
@@ -707,10 +793,22 @@
       .catch(function (err) { console.error(err); showToast("Couldn't delete that post"); });
   }
   var postBodyEl = document.getElementById("post-body");
+  function updatePostSubmitState() {
+    var button = document.getElementById("submit-post");
+    if (!button || !postBodyEl) return;
+    button.disabled = !(postBodyEl.value.trim() && communityPostSpot);
+  }
   if (postBodyEl) {
     postBodyEl.addEventListener("input", function () {
       document.getElementById("post-count").textContent = postBodyEl.value.length + "/500";
-      document.getElementById("submit-post").disabled = !postBodyEl.value.trim();
+      updatePostSubmitState();
+    });
+  }
+  var postSpotEl = document.getElementById("post-spot");
+  if (postSpotEl) {
+    postSpotEl.addEventListener("change", function () {
+      communityPostSpot = postSpotEl.value || null;
+      updatePostSubmitState();
     });
   }
   var postForm = document.getElementById("post-form");
@@ -719,23 +817,26 @@
       event.preventDefault();
       var body = postBodyEl.value.trim();
       var uid = currentUserId();
+      if (!communityPostSpot) { showToast("Choose a spot before posting"); return; }
       if (!body) return;
       if (!supabase || !uid) { showToast("Log in to post"); return; }
       var button = document.getElementById("submit-post");
       button.disabled = true;
-      supabase.from("posts").insert({ user_id: uid, body: body }).select("*, profiles(display_name)").single()
+      supabase.from("posts").insert({ user_id: uid, body: body, spot_id: communityPostSpot }).select("*, profiles(display_name, points), spots(name)").single()
         .then(function (result) {
           if (result.error) throw result.error;
           posts.unshift(postFromRow(result.data));
           postBodyEl.value = "";
           document.getElementById("post-count").textContent = "0/500";
+          communityPostSpot = null;
           renderCommunity();
-          showToast("Posted to the community board");
+          bumpMyPoints(5);
+          showToast("Posted to the community board \u00b7 +5 points");
         })
         .catch(function (err) {
           console.error(err);
           showToast("Couldn't post that — try again");
-          button.disabled = !postBodyEl.value.trim();
+          updatePostSubmitState();
         });
     });
   }
@@ -757,6 +858,7 @@
       if (!session) { goToLogin(); return; }
       appRevealed = true;
       renderAuthSlot();
+      loadMyProfile();
       revealApp();
     }).catch(function () {
       /* Couldn't reach Supabase to check the session — send to login rather
@@ -770,6 +872,7 @@
         return;
       }
       renderAuthSlot();
+      loadMyProfile();
       if (state.activeView === "community") renderCommunity();
     });
   } else {

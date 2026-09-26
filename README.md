@@ -3,6 +3,20 @@ A student-driven platform to discover and rate cafés, food spots, hangouts, and
 
 The whole app now sits behind a login: opening the site sends you to a dedicated **`login.html`** page first; once you're logged in you land on **`index.html`**, and RoamRIT remembers you on that device so you won't be asked again until you log out. Both pages run on the same Supabase project as before.
 
+## Points & leaderboard
+RoamRIT now gamifies contributing: every logged-in user has a running point total, visible next to their name in the topbar, on the community board, and on a new **Leaderboard** tab.
+
+- **+20** for adding a new spot
+- **+10** for posting a review/check-in on an existing spot
+- **+5** for posting to the community board
+
+Points are awarded entirely in the database (`schema.sql` adds a `points` column on `profiles` plus a trigger on each of `spots`, `checkins`, and `posts` that credits the author on insert), not by the frontend — so the total can't drift out of sync and can't be gamed by editing `script.js`. A small guard trigger also blocks the existing "update own profile" policy from being used to edit `points` directly from the client; only the internal award triggers can change it.
+
+To make this attribution possible, `spots` and `checkins` gained a `user_id` column (nullable, set to `auth.uid()` by the client on insert). If you already have a live project, just re-run the updated `schema.sql` — the `alter table ... add column if not exists` and `create or replace` statements are safe to apply on top of existing data.
+
+## Community posts are now tied to a spot
+Before posting on the Community board, you must choose which spot the post is about from a dropdown in the composer (the **Post** button stays disabled until both a spot and some text are filled in). Each post then shows a small "📍 Spot name" tag underneath it — tap it to jump straight to that spot's details. This uses a new `spot_id` column on `posts` (nullable at the database level, so it won't break any posts that predate this feature, but required by the UI for anything posted going forward).
+
 ## How the login gate works
 - `login.html` is its own page with its own script (`login.js`) — a login/sign-up form, nothing else.
 - `index.html` is the app itself. On load it checks for a Supabase session before showing anything: a small loading screen holds while that check runs, then either the app appears or the browser is sent to `login.html`.
