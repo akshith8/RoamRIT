@@ -1,6 +1,7 @@
 # RoamRIT
 
 RoamRIT is a campus companion site for MSRIT students to discover, review, and talk about spots around campus — study corners, food joints, chill-out areas, and hangout spots. It's a static front-end (HTML/CSS/vanilla JS) backed by Supabase for auth, data storage, and a lightweight gamification system.
+We are live: https://roamrit.netlify.app
 
 ## Features
 
