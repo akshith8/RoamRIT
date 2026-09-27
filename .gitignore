@@ -1,1 +1,8 @@
-supabase-config.js
+# js/supabase-config.js is intentionally NOT ignored — it only holds the
+# public anon key, which is safe to ship client-side (RLS policies in
+# sql/schema.sql control actual access). Keeping it out of git meant it
+# never reached Netlify on deploy, so the app had no Supabase connection
+# in production (no spots/pins would load). If you rotate to a different
+# key strategy later, re-add an ignore rule here.
+node_modules/
+.DS_Store

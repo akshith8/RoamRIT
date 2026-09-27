@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <div class="boot-loader" id="boot-loader" aria-hidden="true">
@@ -56,11 +56,6 @@
             <h1>Find your next<br>favorite spot<span class="hero-dot" aria-hidden="true"></span></h1>
             <p class="hero-sub">Handpicked places around MSRIT — from quiet corners to the busiest hangouts, updated by students like you. <button class="link-quiet" type="button" id="feed-link">See recent activity →</button></p>
           </div>
-          <div class="pulse-strip" id="pulse-strip" aria-live="polite"></div>
-        </div>
-
-        <div class="ticker" id="hero-ticker" aria-hidden="true">
-          <div class="ticker-track" id="ticker-track"></div>
         </div>
 
         <div class="search-row">
@@ -106,10 +101,6 @@
             </div>
           </div>
           <p class="map-caption">
-            <span class="legend-dot" style="--c:#2be3a2"></span>Open
-            <span class="legend-dot" style="--c:#ffb020"></span>Filling
-            <span class="legend-dot" style="--c:#ff4d6d"></span>Busy
-            <span class="map-caption-sep">·</span>
             <span id="map-summary"></span>
             <button type="button" id="refresh-btn" class="link-quiet">Refresh</button>
           </p>
@@ -222,7 +213,18 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div id="drawer-root"></div>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script src="supabase-config.js"></script>
-  <script src="script.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/campus-data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/campus-map.js"></script>
+  <script src="js/explore.js"></script>
+  <script src="js/detail-drawer.js"></script>
+  <script src="js/contribute-form.js"></script>
+  <script src="js/community.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/nav.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
