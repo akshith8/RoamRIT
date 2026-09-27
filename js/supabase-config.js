@@ -12,5 +12,5 @@
  * Level Security (RLS) policies you run in sql/schema.sql. Never put
  * the service_role key in this file or anywhere in the frontend.
  */
-window.SUPABASE_URL = "https://secbidjxomybpqgivfwe.supabase.co";
-window.SUPABASE_ANON_KEY = "sb_publishable__ZCr76qJ4dPAgNYJuBWeew_19HgXX77";
+window.SUPABASE_URL = "https://YOUR-PROJECT-ref.supabase.co";
+window.SUPABASE_ANON_KEY = "YOUR-ANON-KEY";
