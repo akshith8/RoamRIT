@@ -108,6 +108,13 @@ Every Supabase call in the JS was checked against `sql/schema.sql` column-for-co
 - The points-award triggers run inside the same transaction as the insert they're attached to, and `protect_points()` correctly blocks a client from writing `points` directly through the "update own profile" policy.
 No schema or policy changes were needed — the backend logic was already consistent with the frontend. (This is a static review of the SQL/JS against each other; it isn't a substitute for clicking through the app once against a live Supabase project, since this environment can't reach the network to do that for you.)
 
+## Security fix — locking down `spots` and `checkins` writes
+Earlier versions of `sql/schema.sql` let **anyone** — including a request made directly against the Supabase REST API with nothing but the public anon key, not just people using the app — insert new spots, post checkins, or rewrite any column on any existing spot (its name, location, description, not just its rating). The anon key itself was never the problem (it's meant to be public), but those policies were too permissive.
+
+This is now fixed: adding a spot or posting a checkin requires a logged-in session and can only be attributed to yourself (`auth.uid() = user_id`), and updating a spot is restricted — both by policy and at the database grant level — to just the `rating` column. Since the whole app already requires login before you can reach the Explore tab, this doesn't change anything about how RoamRIT feels to use.
+
+**If you already ran the old `schema.sql` on a live Supabase project**, open **SQL Editor → New query**, paste in just the new `-- Security hardening` section at the bottom of `sql/schema.sql`, and run it — every statement in it is idempotent (safe to run more than once, and safe to run without the rest of the file).
+
 ### Notes
 - The anon key is safe to expose in client-side code — everything it can and can't do is controlled by the Row Level Security policies in `sql/schema.sql`.
 - Display names are editable data-wise (in `profiles.display_name`), but there's no in-app "edit profile" UI yet.

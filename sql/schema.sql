@@ -196,3 +196,41 @@ drop trigger if exists on_post_award_points on public.posts;
 create trigger on_post_award_points
   after insert on public.posts
   for each row execute procedure public.award_points_for_post();
+
+-- ============================================================
+-- Security hardening — restrict writes to logged-in users
+-- ============================================================
+-- The original spots/checkins policies below were written before user_id
+-- existed on either table, so they allowed inserts and updates from
+-- anyone — including requests made directly against the Supabase REST
+-- API with nothing but the public anon key, bypassing the app's login
+-- gate entirely. This section replaces them now that both tables carry
+-- a user_id. Safe to run on its own against an existing project (each
+-- statement is idempotent), and safe as part of a full fresh run of this
+-- file, since it runs after user_id is added above.
+
+-- spots: only a logged-in user, posting as themselves, can add a spot.
+drop policy if exists "Anyone can add a spot" on public.spots;
+create policy "Logged-in users can add a spot" on public.spots
+  for insert with check (auth.uid() = user_id);
+
+-- spots: the client only ever needs to update a spot's rolling `rating`
+-- after a new checkin, so require a logged-in user AND, at the grant
+-- level, only permit writes to that one column — even a hand-crafted
+-- REST call can no longer rename a spot, move its map pin, or edit its
+-- description this way.
+drop policy if exists "Anyone can update a spot's rating" on public.spots;
+create policy "Logged-in users can update a spot's rating" on public.spots
+  for update using (auth.uid() is not null) with check (auth.uid() is not null);
+revoke update on public.spots from anon, authenticated;
+grant update (rating) on public.spots to authenticated;
+
+-- checkins: only a logged-in user, posting as themselves, can check in.
+drop policy if exists "Anyone can post a checkin" on public.checkins;
+create policy "Logged-in users can post a checkin" on public.checkins
+  for insert with check (auth.uid() = user_id);
+
+-- Belt-and-suspenders: anonymous (logged-out) requests can still SELECT
+-- everything, by design, but can no longer attempt any write at all.
+revoke insert, update, delete on public.spots from anon;
+revoke insert, update, delete on public.checkins from anon;
