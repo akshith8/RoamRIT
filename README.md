@@ -1,6 +1,13 @@
 # RoamRIT
 A student-driven platform to discover and rate cafés, food spots, hangouts, and useful places around MSRIT.
 
+## Campus map now uses the real illustrated map
+The Map view (and the mini pin-picker in **Add Spot**) now render the illustrated isometric campus artwork (`campus-map.jpg`) as their background instead of flat colored blocks. The building tap-zones, tooltips, "Filling/Busy" dots, and the sector filter pill all still work exactly as before — they're just invisible hit-boxes now, positioned in `script.js`'s `CAMPUS_BUILDINGS` array to line up pixel-for-pixel with the artwork. On hover/tap, a building briefly lights up with a soft color tint over the art instead of a solid block.
+
+If you ever swap in a new map image:
+1. Replace `campus-map.jpg` (any aspect ratio works, but keep it wide-landscape — the map canvas locks to the image's own ratio via CSS `aspect-ratio` so nothing stretches).
+2. Re-measure each building's bounding box as a % of the new image's width/height and update the `x`, `y`, `w`, `h` values in `CAMPUS_BUILDINGS` in `script.js`.
+
 The whole app now sits behind a login: opening the site sends you to a dedicated **`login.html`** page first; once you're logged in you land on **`index.html`**, and RoamRIT remembers you on that device so you won't be asked again until you log out. Both pages run on the same Supabase project as before.
 
 ## Points & leaderboard

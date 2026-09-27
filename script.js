@@ -22,6 +22,50 @@
     { key: "hangout", label: "Hangout", icon: CATEGORIES.hangout.icon }
   ];
   var VIBES = ["Chill", "Focused", "Buzzing", "Packed", "Sleepy"];
+
+  /* ----- campus map: building blocks, laid out as % of the map canvas -----
+     (loosely modeled on the MSRIT campus reference image — courtyard in the
+     middle, ESB/Apex/DES along the top-right, Architecture/Workshop down the
+     left, LHC/MSB closing the bottom-right). x/y/w/h are all percentages, so
+     the same layout renders at any canvas size (big map or the tiny add-spot picker). */
+  /* x/y/w/h below are pixel-measured against campus-map.jpg (876x552) so the
+     invisible hit-boxes line up exactly with the illustrated buildings that
+     now render as the map's background. Re-measure from the image if it's
+     ever replaced. */
+  var CAMPUS_BUILDINGS = [
+    { id: "esb", short: "ESB", full: "Engineering Sciences Block", color: "#ff8500", x: 15.64, y: 4.35, w: 37.79, h: 17.03 },
+    { id: "apex", short: "Apex", full: "Apex Block", color: "#e75b00", x: 56.16, y: 4.89, w: 24.32, h: 17.39 },
+    { id: "des", short: "DES", full: "Division of Electrical Sciences", color: "#8261ff", x: 59.82, y: 24.28, w: 22.95, h: 22.10 },
+    { id: "architecture", short: "Arch", full: "Architecture Block", color: "#df169d", x: 6.39, y: 21.92, w: 16.10, h: 23.55 },
+    { id: "workshop", short: "Workshop", full: "Workshop Block", color: "#2ba74a", x: 3.88, y: 48.19, w: 20.43, h: 23.91 },
+    { id: "lhc", short: "LHC", full: "Lecture Complex", color: "#eb5400", x: 62.56, y: 47.64, w: 26.37, h: 37.32 },
+    { id: "msb", short: "MSB", full: "Multipurpose Block", color: "#00abf7", x: 37.33, y: 61.78, w: 28.08, h: 25.36 }
+  ];
+  function buildingAt(x, y) {
+    var found = null;
+    CAMPUS_BUILDINGS.forEach(function (b) {
+      if (!found && x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) found = b;
+    });
+    return found;
+  }
+  function buildingById(id) {
+    var found = null;
+    CAMPUS_BUILDINGS.forEach(function (b) { if (b.id === id) found = b; });
+    return found;
+  }
+  function campusMarkup(mini) {
+    var path = '<svg class="map-path" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><line x1="70" y1="26" x2="33" y2="68"/></svg>';
+    var buildings = CAMPUS_BUILDINGS.map(function (b) {
+      var tag = mini ? "span" : "button";
+      var attrs = mini ? "" : ' type="button" data-building="' + b.id + '" aria-pressed="false"';
+      var style = "left:" + b.x + "%; top:" + b.y + "%; width:" + b.w + "%; height:" + b.h + "%; --bc:" + b.color;
+      return "<" + tag + " class=\"map-building" + (mini ? " mini" : "") + "\"" + attrs +
+        ' style="' + style + '" title="' + escapeHTML(b.full) + '" aria-label="' + escapeHTML(b.full) + '">' +
+        (mini ? "" : '<span class="building-name">' + escapeHTML(b.short) + "</span>") +
+        "</" + tag + ">";
+    }).join("");
+    return path + buildings;
+  }
   function now() { return Date.now(); }
   function slugify(name) {
     var base = String(name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "spot";
@@ -50,7 +94,7 @@
 
   /* spots/checkins start empty and are filled in by loadData() once Supabase responds */
   var spots = [];
-  var state = { filter: "all", search: "", selected: null, activeView: "explore", viewMode: "list", saved: loadSavedFromStorage() };
+  var state = { filter: "all", search: "", selected: null, activeView: "explore", viewMode: "list", saved: loadSavedFromStorage(), mapSector: null };
 
   /* ----- auth + community board state ----- */
   var session = null;
@@ -93,7 +137,7 @@
     mode: "update",
     spot: null,
     vibe: null, rating: null, noise: 3, outlets: 3, comfort: 3,
-    newSpot: { name: "", category: "study", sector: "", x: null, y: null }
+    newSpot: { name: "", category: "study", sector: "", x: null, y: null, sectorTouched: false }
   };
 
   /* ----- saved spots persist per-browser in localStorage (not shared via Supabase) ----- */
@@ -143,6 +187,10 @@
   function matchingSpots() {
     return spots.filter(function (spot) {
       if (state.filter !== "all" && spot.category !== state.filter) return false;
+      if (state.mapSector) {
+        var building = buildingAt(spot.x, spot.y);
+        if (!building || building.id !== state.mapSector) return false;
+      }
       if (!state.search) return true;
       var recent = latest(spot);
       var haystack = (spot.name + " " + spot.description + " " + spot.sector + " " + CATEGORIES[spot.category].label + " " + (recent ? recent.vibe : "")).toLowerCase();
@@ -154,7 +202,7 @@
   }
 
   function renderSectorList() {
-    var sectors = [];
+    var sectors = CAMPUS_BUILDINGS.map(function (b) { return b.full; });
     spots.forEach(function (spot) { if (sectors.indexOf(spot.sector) === -1) sectors.push(spot.sector); });
     var list = document.getElementById("sector-list");
     if (list) list.innerHTML = sectors.map(function (sector) { return '<option value="' + escapeHTML(sector) + '"></option>'; }).join("");
@@ -221,9 +269,101 @@
     if (state.activeView === "saved") renderSavedView(); else renderList(matchingSpots());
   }
 
+  /* the building blocks + path are static — drawn once — so re-rendering the
+     map on every search keystroke only has to touch the markers layer. */
+  function initCampusMap() {
+    var viewport = document.getElementById("map-viewport");
+    if (viewport) {
+      viewport.insertAdjacentHTML("afterbegin", campusMarkup(false));
+      viewport.insertAdjacentHTML("beforeend", '<div class="map-markers" id="map-markers"></div>');
+      viewport.querySelectorAll("[data-building]").forEach(function (button) {
+        button.addEventListener("click", function (event) {
+          event.stopPropagation();
+          toggleMapSector(button.dataset.building);
+        });
+      });
+    }
+    var miniMap = document.getElementById("mini-map");
+    if (miniMap) {
+      miniMap.insertAdjacentHTML("afterbegin", campusMarkup(true));
+      miniMap.insertAdjacentHTML("beforeend", '<div class="mini-map-dots" id="mini-map-dots"></div>');
+    }
+  }
+  function toggleMapSector(id) {
+    state.mapSector = state.mapSector === id ? null : id;
+    document.querySelectorAll("#map-viewport [data-building]").forEach(function (button) {
+      var active = button.dataset.building === state.mapSector;
+      button.setAttribute("aria-pressed", String(active));
+      button.classList.toggle("dimmed", !!state.mapSector && !active);
+    });
+    var hint = document.getElementById("map-hint");
+    if (hint) hint.hidden = !!state.mapSector;
+    updateSectorPill();
+    renderExplore();
+  }
+  function updateSectorPill() {
+    var pill = document.getElementById("sector-clear-btn");
+    if (!pill) return;
+    if (!state.mapSector) { pill.hidden = true; return; }
+    var building = buildingById(state.mapSector);
+    pill.hidden = false;
+    pill.innerHTML = '<span class="sector-pill-dot" style="--bc:' + (building ? building.color : "#d6ff3f") + '"></span>' +
+      escapeHTML(building ? building.full : "Building") + ' <span class="sector-pill-x">\u2715</span>';
+  }
+  var sectorClearBtn = document.getElementById("sector-clear-btn");
+  if (sectorClearBtn) sectorClearBtn.addEventListener("click", function () { toggleMapSector(state.mapSector); });
+
+  /* pinch/scroll zoom + drag-to-pan on the big map, once zoomed in */
+  var mapZoom = { scale: 1, x: 0, y: 0 };
+  var mapDrag = null;
+  function applyMapTransform() {
+    var viewport = document.getElementById("map-viewport");
+    var canvas = document.getElementById("map-canvas");
+    if (!viewport) return;
+    viewport.style.transform = "translate(" + mapZoom.x + "px, " + mapZoom.y + "px) scale(" + mapZoom.scale + ")";
+    if (canvas) canvas.classList.toggle("is-zoomed", mapZoom.scale > 1);
+  }
+  function setMapZoom(scale) {
+    mapZoom.scale = Math.max(1, Math.min(2.5, scale));
+    if (mapZoom.scale === 1) { mapZoom.x = 0; mapZoom.y = 0; }
+    applyMapTransform();
+  }
+  var mapCanvasEl = document.getElementById("map-canvas");
+  var zoomInBtn = document.getElementById("map-zoom-in");
+  var zoomOutBtn = document.getElementById("map-zoom-out");
+  var zoomResetBtn = document.getElementById("map-zoom-reset");
+  if (zoomInBtn) zoomInBtn.addEventListener("click", function () { setMapZoom(mapZoom.scale + 0.35); });
+  if (zoomOutBtn) zoomOutBtn.addEventListener("click", function () { setMapZoom(mapZoom.scale - 0.35); });
+  if (zoomResetBtn) zoomResetBtn.addEventListener("click", function () { setMapZoom(1); });
+  if (mapCanvasEl) {
+    mapCanvasEl.addEventListener("wheel", function (event) {
+      if (state.viewMode !== "map") return;
+      event.preventDefault();
+      setMapZoom(mapZoom.scale + (event.deltaY < 0 ? 0.2 : -0.2));
+    }, { passive: false });
+    mapCanvasEl.addEventListener("pointerdown", function (event) {
+      if (mapZoom.scale <= 1) return;
+      if (event.target.closest(".map-building, .map-node, .map-zoom-controls")) return;
+      mapDrag = { startX: event.clientX, startY: event.clientY, origX: mapZoom.x, origY: mapZoom.y, id: event.pointerId };
+      mapCanvasEl.setPointerCapture(event.pointerId);
+    });
+    mapCanvasEl.addEventListener("pointermove", function (event) {
+      if (!mapDrag || event.pointerId !== mapDrag.id) return;
+      mapZoom.x = mapDrag.origX + (event.clientX - mapDrag.startX);
+      mapZoom.y = mapDrag.origY + (event.clientY - mapDrag.startY);
+      applyMapTransform();
+    });
+    ["pointerup", "pointercancel"].forEach(function (type) {
+      mapCanvasEl.addEventListener(type, function (event) {
+        if (mapDrag && event.pointerId === mapDrag.id) mapDrag = null;
+      });
+    });
+  }
+
   function renderMap(items) {
-    var map = document.getElementById("map-canvas");
-    map.innerHTML = '<span class="map-label north">North quad</span><span class="map-label center">Central walk</span><span class="map-label south">South gate</span>';
+    var layer = document.getElementById("map-markers");
+    if (!layer) return;
+    layer.innerHTML = "";
     items.forEach(function (spot) {
       var signal = signalFor(spot);
       var node = document.createElement("button");
@@ -235,11 +375,12 @@
       var recent = latest(spot);
       node.setAttribute("aria-label", spot.name + ", " + signalLabel(signal) + (recent ? ", updated " + relativeTime(recent.timestamp) : ""));
       node.innerHTML = '<span class="node-glyph">' + CATEGORIES[spot.category].icon + '</span><span class="node-name">' + escapeHTML(spot.name.split(" · ")[0]) + "</span>";
-      node.addEventListener("click", function () { openDetail(spot.id); });
-      map.appendChild(node);
+      node.addEventListener("click", function (event) { event.stopPropagation(); openDetail(spot.id); });
+      layer.appendChild(node);
     });
     var openCount = items.filter(function (spot) { return signalFor(spot) === "open"; }).length;
-    document.getElementById("map-summary").textContent = openCount + " of " + items.length + " spots are open right now";
+    var scopeLabel = state.mapSector ? " in " + ((buildingById(state.mapSector) || {}).full || "this building") : "";
+    document.getElementById("map-summary").textContent = openCount + " of " + items.length + " spots are open right now" + scopeLabel;
   }
   function renderList(items) {
     var listEl = document.getElementById("spot-list");
@@ -445,9 +586,9 @@
     });
   }
   function renderMiniMap() {
-    var map = document.getElementById("mini-map");
-    if (!map) return;
-    map.querySelectorAll(".mini-map-dot, .mini-map-marker").forEach(function (node) { node.remove(); });
+    var layer = document.getElementById("mini-map-dots");
+    if (!layer) return;
+    layer.innerHTML = "";
     var hint = document.getElementById("mini-map-hint");
     spots.forEach(function (spot) {
       var dot = document.createElement("span");
@@ -455,7 +596,7 @@
       dot.style.left = spot.x + "%";
       dot.style.top = spot.y + "%";
       dot.style.background = CATEGORIES[spot.category].color;
-      map.appendChild(dot);
+      layer.appendChild(dot);
     });
     if (formState.newSpot.x !== null && formState.newSpot.y !== null) {
       if (hint) hint.hidden = true;
@@ -464,7 +605,7 @@
       marker.style.left = formState.newSpot.x + "%";
       marker.style.top = formState.newSpot.y + "%";
       marker.style.background = CATEGORIES[formState.newSpot.category].color;
-      map.appendChild(marker);
+      layer.appendChild(marker);
     } else if (hint) {
       hint.hidden = false;
     }
@@ -478,6 +619,13 @@
     var y = Math.round(Math.max(4, Math.min(96, ((clientY - rect.top) / rect.height) * 100)));
     formState.newSpot.x = x;
     formState.newSpot.y = y;
+    if (!formState.newSpot.sectorTouched) {
+      var building = buildingAt(x, y);
+      var autoSector = building ? building.full : "Courtyard";
+      formState.newSpot.sector = autoSector;
+      var sectorInput = document.getElementById("new-spot-sector");
+      if (sectorInput) sectorInput.value = autoSector;
+    }
     renderMiniMap();
     updateAddSpotSubmitState();
   }
@@ -550,7 +698,11 @@
   }
   document.getElementById("report-spot").addEventListener("change", function (event) { formState.spot = event.target.value; updateReviewSubmitState(); });
   document.getElementById("new-spot-name").addEventListener("input", function (event) { formState.newSpot.name = event.target.value; updateAddSpotSubmitState(); });
-  document.getElementById("new-spot-sector").addEventListener("input", function (event) { formState.newSpot.sector = event.target.value.trim(); updateAddSpotSubmitState(); });
+  document.getElementById("new-spot-sector").addEventListener("input", function (event) {
+    formState.newSpot.sector = event.target.value.trim();
+    formState.newSpot.sectorTouched = true;
+    updateAddSpotSubmitState();
+  });
   function resetReviewForm() {
     formState.vibe = null;
     formState.rating = null;
@@ -563,7 +715,7 @@
     document.getElementById("new-spot-name").value = "";
     document.getElementById("new-spot-description").value = "";
     document.getElementById("new-spot-sector").value = "";
-    formState.newSpot = { name: "", category: "study", sector: "", x: null, y: null };
+    formState.newSpot = { name: "", category: "study", sector: "", x: null, y: null, sectorTouched: false };
     renderCategoryChoices();
     renderMiniMap();
     updateAddSpotSubmitState();
@@ -915,5 +1067,6 @@
     });
   }
 
+  initCampusMap();
   loadData();
 })();

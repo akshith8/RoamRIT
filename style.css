@@ -290,7 +290,7 @@ h1, h2, h3 { font-family: var(--display); letter-spacing: -.03em; color: var(--t
 }
 .location-chip:hover { border-color: var(--indigo-bright); color: var(--indigo-bright); transform: translateY(-1px); }
 
-.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 14px 10px; margin-bottom: 18px; flex-wrap: wrap; }
 .chip-row { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; }
 .chip-row::-webkit-scrollbar { display: none; }
 .filter-chip {
@@ -435,29 +435,124 @@ h1, h2, h3 { font-family: var(--display); letter-spacing: -.03em; color: var(--t
 .map-canvas {
   position: relative;
   overflow: hidden;
-  min-height: 400px;
+  aspect-ratio: 876 / 552;
+  min-height: 260px;
   border-radius: var(--radius-lg);
   background: var(--surface);
   border: 2px solid var(--line);
+  touch-action: none;
 }
-.map-canvas::before {
-  content: "";
-  position: absolute; inset: 0;
-  background-image: radial-gradient(rgba(255, 255, 255, .09) 1.4px, transparent 1.4px);
-  background-size: 24px 24px;
+.map-canvas.is-zoomed { cursor: grab; }
+.map-canvas.is-zoomed:active { cursor: grabbing; }
+
+/* the transformed layer: illustrated campus art, buildings + markers all pan/zoom together.
+   background-size is 100% 100% (not cover/contain) so it stretches exactly with this box —
+   since .map-canvas is locked to the art's own aspect-ratio above, that stretch is 1:1 and the
+   building hit-boxes below (measured in the same % units) stay pixel-aligned to the artwork. */
+.map-viewport {
+  position: absolute;
+  inset: 0;
+  background-image: url("campus-map.jpg");
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  transform-origin: 50% 50%;
+  transition: transform .22s var(--ease);
+  will-change: transform;
 }
-.map-canvas::after {
-  content: "";
-  position: absolute; width: 55%; height: 70%; left: 8%; top: 12%;
-  border-radius: 44% 56% 50% 50%;
-  background: radial-gradient(circle, var(--indigo-soft), transparent 70%);
-  opacity: .8;
+.map-path { display: none; }
+
+.map-building {
+  position: absolute;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .18s var(--ease-pop), box-shadow .18s, opacity .18s, background .18s, border-color .18s;
+}
+.map-building:hover, .map-building[aria-pressed="true"] {
+  border-color: var(--bc);
+  background: color-mix(in srgb, var(--bc) 30%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bc) 35%, transparent);
+}
+.map-building[aria-pressed="true"] { background: color-mix(in srgb, var(--bc) 38%, transparent); }
+.map-building.dimmed { opacity: .35; box-shadow: none; }
+.map-building .building-name {
+  color: #fff;
+  font: 700 11px var(--mono);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.map-building:hover .building-name, .map-building[aria-pressed="true"] .building-name { opacity: 1; }
+.map-building.mini {
+  pointer-events: none;
+  border-width: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent !important;
+}
+.map-building.mini .building-name { display: none; }
+
+.map-hint {
+  position: absolute;
+  left: 14px; bottom: 14px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(10, 10, 16, .72);
+  border: 1px solid var(--line);
+  color: var(--muted-2);
+  font-size: 11px;
+  font-family: var(--mono);
   pointer-events: none;
 }
-.map-label { position: absolute; color: var(--muted-2); font-size: 11px; font-weight: 600; font-family: var(--mono); opacity: .8; }
-.map-label.north { top: 20px; left: 22px; }
-.map-label.south { right: 22px; bottom: 18px; }
-.map-label.center { top: 46%; left: 42%; }
+.map-zoom-controls {
+  position: absolute;
+  top: 14px; right: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-zoom-btn {
+  width: 32px; height: 32px;
+  display: grid; place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 9px;
+  background: var(--ink-2);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: color .18s, border-color .18s, transform .16s var(--ease-pop);
+}
+.map-zoom-btn:hover { border-color: var(--indigo-bright); color: var(--indigo-bright); transform: translateY(-1px); }
+.map-zoom-reset { font-size: 0; }
+
+.sector-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 40px;
+  border: 2px solid var(--lime);
+  border-radius: 999px;
+  padding: 0 14px;
+  background: var(--lime-dim);
+  color: var(--lime);
+  font-size: 12.5px;
+  font-weight: 700;
+  font-family: var(--mono);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform .16s var(--ease-pop);
+}
+.sector-pill:hover { transform: translateY(-1px); }
+.sector-pill-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bc); display: inline-block; flex-shrink: 0; }
+.sector-pill-x { opacity: .75; }
+.toolbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
 .map-node {
   --node: var(--teal);
   position: absolute;
@@ -593,10 +688,10 @@ textarea.field-input { min-height: 88px; resize: vertical; }
 /* ----- mini map location picker ----- */
 .mini-map {
   position: relative;
-  height: 134px;
+  aspect-ratio: 876 / 552;
   border: 2px dashed var(--line);
   border-radius: var(--radius-sm);
-  background: var(--ink-2);
+  background: var(--ink-2) url("campus-map.jpg") center / 100% 100% no-repeat;
   cursor: crosshair;
   overflow: hidden;
 }
@@ -833,8 +928,9 @@ textarea.field-input { min-height: 88px; resize: vertical; }
 /* ----- responsive ----- */
 @media (max-width: 900px) {
   .place-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-  .map-canvas { min-height: 320px; }
   .hero-explore { align-items: flex-start; }
+  .map-building .building-name { font-size: 9.5px; }
+  .map-hint { font-size: 10px; padding: 6px 10px; max-width: calc(100% - 70px); }
 }
 @media (max-width: 650px) {
   .topbar { height: 64px; gap: 10px; padding: 0 14px; }

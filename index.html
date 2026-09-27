@@ -79,9 +79,12 @@
 
         <div class="toolbar">
           <div class="chip-row" id="filter-bar" aria-label="Browse by category"></div>
-          <div class="view-toggle" id="view-toggle" role="tablist" aria-label="Show as list or map">
-            <button type="button" class="toggle-btn" data-view="list" aria-pressed="true">List</button>
-            <button type="button" class="toggle-btn" data-view="map" aria-pressed="false">Map</button>
+          <div class="toolbar-right">
+            <button type="button" class="sector-pill" id="sector-clear-btn" hidden></button>
+            <div class="view-toggle" id="view-toggle" role="tablist" aria-label="Show as list or map">
+              <button type="button" class="toggle-btn" data-view="list" aria-pressed="true">List</button>
+              <button type="button" class="toggle-btn" data-view="map" aria-pressed="false">Map</button>
+            </div>
           </div>
         </div>
 
@@ -91,7 +94,17 @@
         <div class="empty-state" id="empty-state" hidden><strong>Nothing here yet.</strong>Try a wider search or another category.</div>
 
         <section class="map-section" id="map-section" hidden aria-label="Campus map">
-          <div class="map-canvas" id="map-canvas"></div>
+          <div class="map-canvas" id="map-canvas">
+            <div class="map-viewport" id="map-viewport"></div>
+            <p class="map-hint" id="map-hint">Tap a building to see what's inside · scroll or pinch to zoom</p>
+            <div class="map-zoom-controls" role="group" aria-label="Zoom map">
+              <button type="button" class="map-zoom-btn" id="map-zoom-in" aria-label="Zoom in">+</button>
+              <button type="button" class="map-zoom-btn" id="map-zoom-out" aria-label="Zoom out">&minus;</button>
+              <button type="button" class="map-zoom-btn map-zoom-reset" id="map-zoom-reset" aria-label="Reset zoom">
+                <svg viewBox="0 0 20 20" width="14" height="14" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4M4 4l5 5M16 16l-5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
+          </div>
           <p class="map-caption">
             <span class="legend-dot" style="--c:#2be3a2"></span>Open
             <span class="legend-dot" style="--c:#ffb020"></span>Filling
